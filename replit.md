@@ -8,14 +8,16 @@ This full-stack web application provides a custom interface for chatting with Cl
 
 ## Recent Changes
 
-**October 19, 2025**
-- Initial implementation with complete MVP functionality
-- Built schema-first architecture with TypeScript interfaces
-- Implemented all frontend components with exceptional visual polish
-- Created streaming backend endpoint with Anthropic SDK integration
-- Added three-state theme system (auto/light/dark)
-- Integrated Server-Sent Events for real-time response streaming
-- Comprehensive e2e testing completed successfully
+**October 19, 2025 - Final Release**
+- **Database Implementation:** PostgreSQL with conversations and messages tables
+- **Multi-Conversation Management:** Shadcn sidebar with conversation list and navigation
+- **Conversation Persistence:** Auto-save messages to database after streaming
+- **Message Actions:** Edit, regenerate, and delete functionality with confirmation dialogs
+- **System Prompt Customization:** Per-conversation custom system prompts with UI indicator
+- **Export Functionality:** Download conversations as Markdown or plain text files
+- **Model Display:** Each assistant message shows which Claude model generated it
+- **Critical Bug Fix:** Corrected apiRequest function signature (url, options) pattern
+- **E2E Testing:** Comprehensive Playwright tests passed for all features
 
 ## Features
 
@@ -25,9 +27,14 @@ This full-stack web application provides a custom interface for chatting with Cl
   - Claude 4.1 Opus (claude-opus-4-20250514)
   - Claude 4.5 Sonnet (claude-sonnet-4-5)
   - Claude 4.5 Haiku (claude-haiku-4-5)
-- **Conversation history** maintained within each session
+- **Multi-conversation management** with sidebar navigation
+- **PostgreSQL persistence** - conversations and messages saved to database
 - **Auto-scrolling chat window** that follows new messages
 - **Streaming indicator** with typewriter cursor animation
+- **Message actions:** Edit user messages, regenerate assistant responses, delete any message
+- **System prompt customization** - set custom prompts per conversation
+- **Export conversations** - download as Markdown or plain text files
+- **Model labels** - each assistant message displays which Claude model was used
 
 ### Design & UX
 - **Typewriter aesthetic** with Courier New monospace font throughout
@@ -48,35 +55,57 @@ This full-stack web application provides a custom interface for chatting with Cl
 
 ### Frontend (`client/src/`)
 - **Components:**
+  - `AppSidebar.tsx` - Shadcn sidebar with conversation list and NEW CHAT button
   - `ThemeToggle.tsx` - Three-state theme system with localStorage
   - `ModelSelector.tsx` - Dropdown for Claude model selection
+  - `SystemPromptDialog.tsx` - Dialog for setting custom system prompts
+  - `ExportButton.tsx` - Dropdown menu for exporting conversations
   - `ChatWindow.tsx` - Scrollable message history container
-  - `ChatMessage.tsx` - Individual message bubble component
+  - `ChatMessage.tsx` - Individual message bubble component with model labels
+  - `MessageActions.tsx` - Edit, regenerate, and delete action buttons
   - `ChatInput.tsx` - Auto-resizing textarea with send button
 - **Pages:**
-  - `Chat.tsx` - Main chat interface with state management
+  - `Chat.tsx` - Main chat interface with conversation loading and state management
 - **Styling:**
   - `index.css` - Typewriter color tokens and elevation utilities
   - `tailwind.config.ts` - Design system configuration
 
 ### Backend (`server/`)
 - **Routes:**
+  - `GET /api/conversations` - List all conversations
+  - `POST /api/conversations` - Create new conversation
+  - `GET /api/conversations/:id` - Get single conversation
+  - `PATCH /api/conversations/:id` - Update conversation (title, systemPrompt)
+  - `DELETE /api/conversations/:id` - Delete conversation (cascades to messages)
+  - `GET /api/conversations/:id/messages` - Get messages for conversation
+  - `POST /api/messages` - Create new message
+  - `DELETE /api/messages/:id` - Delete single message
   - `POST /api/chat` - Streaming chat endpoint with SSE
 - **Services:**
   - `anthropic.ts` - Claude API client initialization
+  - `storage.ts` - IStorage interface with MemStorage implementation
+  - `db.ts` - Drizzle ORM database connection
 - **Features:**
-  - Zod validation for request data
+  - Zod validation for all request data
   - Conversation history support
+  - System prompt integration
+  - Database persistence with Drizzle ORM
   - Error handling with appropriate status codes
 
 ### Shared (`shared/`)
-- `schema.ts` - TypeScript types and Zod schemas for messages and requests
+- `schema.ts` - Drizzle ORM schema definitions:
+  - `conversations` table (id, title, systemPrompt, createdAt, updatedAt)
+  - `messages` table (id, conversationId, role, content, model, createdAt)
+  - Zod insert/select schemas for type safety
+  - TypeScript types for frontend/backend consistency
 
 ## Technology Stack
 
-- **Frontend:** React, TypeScript, Wouter (routing), TailwindCSS
+- **Frontend:** React, TypeScript, Wouter (routing), TailwindCSS, TanStack Query
 - **Backend:** Express.js, Node.js
+- **Database:** PostgreSQL (Neon) with Drizzle ORM
 - **AI:** Anthropic Claude API (via @anthropic-ai/sdk)
+- **UI Components:** Shadcn UI (Radix UI primitives)
 - **Streaming:** Server-Sent Events (SSE)
 - **Validation:** Zod
 - **Styling:** Custom CSS variables + Tailwind utilities
@@ -84,7 +113,9 @@ This full-stack web application provides a custom interface for chatting with Cl
 ## Environment Variables
 
 - `ANTHROPIC_API_KEY` - Required for Claude API access (stored in Replit Secrets)
+- `DATABASE_URL` - PostgreSQL connection string (automatically configured)
 - `SESSION_SECRET` - Session management (pre-configured)
+- `PG*` variables - PostgreSQL connection details (automatically configured)
 
 ## Design System
 
@@ -113,9 +144,14 @@ This full-stack web application provides a custom interface for chatting with Cl
 - Hover shadow: 6px 6px 0px (theme color)
 - No border-radius (hard edges throughout)
 
-## User Preferences
+## Data Persistence
 
-The application uses localStorage to persist:
+**Database:**
+- All conversations and messages stored in PostgreSQL
+- Cascade delete ensures message cleanup when conversation is deleted
+- Timestamps track creation and updates
+
+**LocalStorage:**
 - Theme preference (system/light/dark)
 - Automatically applies saved theme on page load to prevent flash
 
@@ -134,21 +170,60 @@ This starts:
 
 The app integrates with Anthropic's Claude API using the official SDK. All API calls are proxied through the backend to keep the API key secure. The streaming implementation uses Claude's messages.stream() method for real-time token-by-token responses.
 
-## Future Enhancements
+**Features:**
+- Conversation history support (full context passed to Claude)
+- Custom system prompts applied per conversation
+- Model selection persisted with each message
+- Automatic conversation creation on first message
+- Message title generation from first user message (max 50 chars)
 
-Potential additions for future development:
-- Conversation persistence across sessions
-- Message editing and regeneration
-- Conversation export (markdown/text)
-- System prompt customization
+## Completed Features
+
+All originally planned features have been implemented:
+- ✅ Conversation persistence across sessions
+- ✅ Message editing and regeneration
+- ✅ Conversation export (markdown/text)
+- ✅ System prompt customization
+- ✅ Multi-conversation management
+
+## Potential Future Enhancements
+
 - Message copying and formatting options
 - Conversation search/filtering
-- Multi-conversation management
+- Conversation folders/tags
+- Conversation sharing (read-only links)
+- Message attachments (images, files)
+- Code syntax highlighting in messages
+- Conversation templates
+- Keyboard shortcuts
+- Dark/light theme per conversation
 
-## Notes
+## Implementation Notes
 
-- This application prioritizes visual excellence and user experience
-- The typewriter aesthetic is purely CSS-based (no images required)
-- All components follow the design guidelines for consistent styling
+**Visual Design:**
+- Typewriter aesthetic is purely CSS-based (no images required)
+- All components follow strict design guidelines for consistent styling
+- Hard edges (no border-radius), 4px shadows, Courier New font throughout
 - Streaming responses provide immediate feedback for better UX
 - Theme system respects system preferences by default
+
+**Technical Decisions:**
+- Schema-first architecture ensures type safety across frontend/backend
+- Drizzle ORM provides type-safe database queries
+- TanStack Query handles caching and optimistic updates
+- Server-Sent Events for efficient streaming (one-way communication)
+- Shadcn UI components maintain consistent typewriter aesthetic
+- apiRequest function follows standard fetch(url, options) pattern
+
+**Database Design:**
+- Serial IDs for simplicity and performance
+- Cascade delete from conversations to messages
+- System prompt nullable (null = use default Claude behavior)
+- Model stored with each message for historical tracking
+- Timestamps enable sorting and display
+
+**Testing:**
+- Comprehensive E2E tests with Playwright
+- Database verification included in test plan
+- UI interactions tested with data-testid attributes
+- Streaming behavior validated end-to-end
