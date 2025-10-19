@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToolBox - Productivity Tools</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Courier New', Courier, monospace; transition: background 0.3s, color 0.3s; }
+        body.light-mode { background: linear-gradient(to bottom, #f4f1ea 0%, #ebe7db 100%); color: #2a2a2a; }
+        body.dark-mode { background: linear-gradient(to bottom, #1a1a1a 0%, #0d0d0d 100%); color: #e0e0e0; }
+        .container { max-width: 900px; margin: 0 auto; padding: 2rem; }
+        .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid; padding-bottom: 1rem; margin-bottom: 1rem; }
+        .light-mode .header { border-color: #2a2a2a; }
+        .dark-mode .header { border-color: #e0e0e0; }
+        .title { font-size: 2.5rem; font-weight: bold; letter-spacing: 0.05em; }
+        .subtitle { text-align: center; opacity: 0.8; margin-bottom: 2rem; }
+        .mode-toggle { display: flex; align-items: center; gap: 0.75rem; font-weight: bold; letter-spacing: 0.1em; font-size: 0.875rem; }
+        .mode-toggle button { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+        .tools-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+        .tool-card { padding: 1.5rem; border: 2px solid; cursor: pointer; transition: all 0.3s; text-align: left; background: none; font-family: inherit; }
+        .light-mode .tool-card { background: #fefdfb; border-color: #2a2a2a; box-shadow: 4px 4px 0px #2a2a2a; color: #2a2a2a; }
+        .dark-mode .tool-card { background: #2a2a2a; border-color: #e0e0e0; box-shadow: 4px 4px 0px #e0e0e0; color: #e0e0e0; }
+        .light-mode .tool-card:hover { background: #f9f7f0; }
+        .dark-mode .tool-card:hover { background: #333333; }
+        .tool-icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
+        .tool-title { font-size: 1.125rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+        .tool-desc { font-size: 0.875rem; opacity: 0.7; }
+        .footer { text-align: center; margin-top: 2rem; padding-top: 1.5rem; border-top: 2px solid; opacity: 0.6; font-size: 0.875rem; }
+        .light-mode .footer { border-color: #2a2a2a; }
+        .dark-mode .footer { border-color: #e0e0e0; }
+    </style>
+</head>
+<body class="dark-mode">
+    <div class="container">
+        <div class="header">
+            <div class="mode-toggle">
+                <span>[ MODE ]</span>
+                <button onclick="toggleTheme()" id="theme-btn">🌙</button>
+            </div>
+            <div class="title">════ TOOLBOX ════</div>
+            <div style="width: 80px;"></div>
+        </div>
+        <div class="subtitle">
+            [  Select a tool to streamline your workflow  ]
+        </div>
+        <div class="tools-grid">
+            <button class="tool-card" onclick="alert('Subtitle Cleaner selected!')">
+                <div class="tool-icon">▌</div>
+                <div class="tool-title">Subtitle Cleaner</div>
+                <div class="tool-desc">Convert .SRT files to clean<br>Word documents instantly___</div>
+            </button>
+            <button class="tool-card" onclick="alert('List to Slides selected!')">
+                <div class="tool-icon">▌</div>
+                <div class="tool-title">List to Slides</div>
+                <div class="tool-desc">Transform long lists into<br>PowerPoint presentations___</div>
+            </button>
+            <button class="tool-card" onclick="alert('Tool coming soon!')">
+                <div class="tool-icon">▌</div>
+                <div class="tool-title">Tool Name Here</div>
+                <div class="tool-desc">Description of what this<br>amazing tool does___</div>
+            </button>
+            <button class="tool-card" onclick="alert('Tool coming soon!')">
+                <div class="tool-icon">▌</div>
+                <div class="tool-title">Tool Name Here</div>
+                <div class="tool-desc">Description of what this<br>amazing tool does___</div>
+            </button>
+            <button class="tool-card" onclick="alert('Tool coming soon!')">
+                <div class="tool-icon">▌</div>
+                <div class="tool-title">Tool Name Here</div>
+                <div class="tool-desc">Description of what this<br>amazing tool does___</div>
+            </button>
+            <button class="tool-card" onclick="alert('Tool coming soon!')">
+                <div class="tool-icon">▌</div>
+                <div class="tool-title">Tool Name Here</div>
+                <div class="tool-desc">Description of what this<br>amazing tool does___</div>
+            </button>
+        </div>
+        <div class="footer">
+            [ More tools coming soon... ]
+        </div>
+    </div>
+    <script>
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.getElementById('theme-btn');
+            if (body.classList.contains('dark-mode')) {
+                body.classList.remove('dark-mode');
+                body.classList.add('light-mode');
+                btn.textContent = '☀️';
+            } else {
+                body.classList.remove('light-mode');
+                body.classList.add('dark-mode');
+                btn.textContent = '🌙';
+            }
+        }
+    </script>
+</body>
+</html>

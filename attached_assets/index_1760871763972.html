@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToolBox - Productivity Tools</title>
+    <style>
+        /* CSS Variables for theming */
+        :root {
+            --font-main: 'Courier New', Courier, monospace;
+        }
+
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow-x: hidden;
+        }
+
+        body { 
+            font-family: var(--font-main); 
+            transition: background 0.3s ease, color 0.3s ease;
+            min-height: 100vh;
+        }
+
+        body.light-mode { 
+            background: linear-gradient(to bottom, #f4f1ea 0%, #ebe7db 100%); 
+            color: #2a2a2a; 
+        }
+
+        body.dark-mode { 
+            background: linear-gradient(to bottom, #1a1a1a 0%, #0d0d0d 100%); 
+            color: #e0e0e0; 
+        }
+
+        .container { 
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 2rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+        }
+
+        .header { 
+            align-items: center; 
+            justify-content: space-between; 
+            border-bottom: 2px solid; 
+            padding-bottom: 1rem; 
+            margin-bottom: 1rem; 
+            position: relative;
+        }
+
+        .light-mode .header { border-color: #2a2a2a; }
+        .dark-mode .header { border-color: #e0e0e0; }
+
+        /* Mode toggle on the left */
+        .mode-toggle { 
+            display: flex; 
+            align-items: center; 
+            gap: 0.75rem; 
+            font-weight: bold; 
+            letter-spacing: 0.1em; 
+            font-size: 0.875rem;
+            position: absolute;
+            left: 0;
+        }
+
+        .mode-toggle span {
+            display: none; /* Hide on mobile */
+        }
+
+        @media (min-width: 480px) {
+            .mode-toggle span {
+                display: inline;
+            }
+        }
+
+        .mode-toggle button { 
+            background: none; 
+            border: none; 
+            font-size: 1.5rem; 
+            cursor: pointer;
+            padding: 0.25rem;
+            transition: transform 0.2s;
+            min-width: 40px;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mode-toggle button:hover {
+            transform: scale(1.1);
+        }
+
+        .mode-toggle button:focus {
+            outline: 2px solid currentColor;
+            outline-offset: 2px;
+        }
+
+        /* Title centered */
+        .title { 
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            font-weight: bold; 
+            letter-spacing: 0.05em;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        /* Spacer for balance */
+        .spacer {
+            width: 80px;
+            visibility: hidden;
+        }
+
+        .subtitle { 
+            text-align: center; 
+            opacity: 0.8; 
+            margin-bottom: 2rem;
+            font-size: clamp(0.875rem, 2vw, 1rem);
+            padding: 0 1rem;
+        }
+
+        /* 2-column grid, responsive */
+        .tools-grid { 
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 1.5rem;
+            flex: 1;
+        }
+
+        /* 3-column on larger screens for more tools visible */
+        @media (min-width: 768px) {
+            .tools-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        /* Single column on very small screens */
+        @media (max-width: 480px) {
+            .tools-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+        }
+
+        .tool-card { 
+            padding: 1.5rem; 
+            border: 2px solid; 
+            cursor: pointer; 
+            transition: all 0.3s; 
+            text-align: left; 
+            background: none; 
+            font-family: inherit;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            position: relative;
+        }
+
+        .light-mode .tool-card { 
+            background: #fefdfb; 
+            border-color: #2a2a2a; 
+            box-shadow: 4px 4px 0px #2a2a2a; 
+            color: #2a2a2a; 
+        }
+
+        .dark-mode .tool-card { 
+            background: #2a2a2a; 
+            border-color: #e0e0e0; 
+            box-shadow: 4px 4px 0px #e0e0e0; 
+            color: #e0e0e0; 
+        }
+
+        .tool-card:hover {
+            transform: translate(-2px, -2px);
+        }
+
+        .light-mode .tool-card:hover { 
+            background: #f9f7f0;
+            box-shadow: 6px 6px 0px #2a2a2a;
+        }
+
+        .dark-mode .tool-card:hover { 
+            background: #333333;
+            box-shadow: 6px 6px 0px #e0e0e0;
+        }
+
+        .tool-card:active {
+            transform: translate(0, 0);
+        }
+
+        .tool-card:focus {
+            outline: 2px solid currentColor;
+            outline-offset: 4px;
+        }
+
+        .tool-icon { 
+            font-size: 1.5rem; 
+            margin-bottom: 0.5rem; 
+        }
+
+        .tool-title { 
+            font-size: 1.125rem; 
+            font-weight: bold; 
+            text-transform: uppercase; 
+            letter-spacing: 0.1em; 
+            margin-bottom: 0.5rem; 
+        }
+
+        .tool-desc { 
+            font-size: 0.875rem; 
+            opacity: 0.7;
+            line-height: 1.3;
+        }
+
+        /* Coming soon cards */
+        .tool-card.coming-soon {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .tool-card.coming-soon:hover {
+            transform: none;
+        }
+
+        .light-mode .tool-card.coming-soon:hover {
+            box-shadow: 4px 4px 0px #2a2a2a;
+            background: #fefdfb;
+        }
+
+        .dark-mode .tool-card.coming-soon:hover {
+            box-shadow: 4px 4px 0px #e0e0e0;
+            background: #2a2a2a;
+        }
+
+        .footer { 
+            text-align: center; 
+            margin-top: 2rem; 
+            padding-top: 1.5rem; 
+            border-top: 2px solid; 
+            opacity: 0.6; 
+            font-size: 0.875rem; 
+        }
+
+        .light-mode .footer { border-color: #2a2a2a; }
+        .dark-mode .footer { border-color: #e0e0e0; }
+
+        /* Loading state */
+        body.loading {
+            visibility: hidden;
+        }
+
+        /* Notification style for coming soon */
+        .notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 1rem 2rem;
+            font-family: var(--font-main);
+            font-size: 1rem;
+            border: 2px solid;
+            z-index: 1000;
+            transition: opacity 0.3s;
+        }
+
+        .light-mode .notification {
+            background: #fefdfb;
+            color: #2a2a2a;
+            border-color: #2a2a2a;
+            box-shadow: 4px 4px 0px #2a2a2a;
+        }
+
+        .dark-mode .notification {
+            background: #2a2a2a;
+            color: #e0e0e0;
+            border-color: #e0e0e0;
+            box-shadow: 4px 4px 0px #e0e0e0;
+        }
+    </style>
+    <script>
+        // Immediately apply saved theme to prevent flash
+        (function() {
+            const saved = localStorage.getItem('themePreference') || 'system';
+            const isDark = saved === 'dark' || (saved === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) {
+                document.documentElement.style.background = '#1a1a1a';
+            }
+        })();
+    </script>
+</head>
+<body class="loading">
+    <div class="container">
+        <header class="header">
+            <div class="mode-toggle">
+                <span>[ MODE ]</span>
+                <button onclick="cycleTheme()" id="theme-btn" aria-label="Toggle theme"></button>
+            </div>
+            <h1 class="title">════ TOOLBOX ════</h1>
+            <div class="spacer"></div>
+        </header>
+        
+        <div class="subtitle">
+            [  Select a tool to streamline your workflow  ]
+        </div>
+        
+        <main class="tools-grid">
+            <button class="tool-card" onclick="window.location.href='https://verneranton.github.io/subtitle2docx/'" aria-label="Subtitle Cleaner tool">
+                <div class="tool-icon">▌</div>
+                <div class="tool-title">Subtitle Cleaner</div>
+                <div class="tool-desc">Convert .SRT files to clean<br>Word documents instantly___</div>
+            </button>
+            
+            <button class="tool-card coming-soon" onclick="showComingSoon()" aria-label="List to Slides - Coming soon">
+                <div class="tool-icon">▌</div>
+                <div class="tool-title">List to Slides</div>
+                <div class="tool-desc">Transform long lists into<br>PowerPoint presentations___</div>
+            </button>
+            
+            <button class="tool-card coming-soon" onclick="showComingSoon()" aria-label="Coming soon">
+                <div class="tool-icon">▌</div>
+                <div class="tool-title">Text Formatter</div>
+                <div class="tool-desc">Clean and format text with<br>custom rules and patterns___</div>
+            </button>
+            
+            <button class="tool-card coming-soon" onclick="showComingSoon()" aria-label="Coming soon">
+                <div class="tool-icon">▌</div>
+                <div class="tool-title">Batch Rename</div>
+                <div class="tool-desc">Rename multiple files with<br>powerful pattern matching___</div>
+            </button>
+            
+            <button class="tool-card coming-soon" onclick="showComingSoon()" aria-label="Coming soon">
+                <div class="tool-icon">▌</div>
+                <div class="tool-title">JSON to CSV</div>
+                <div class="tool-desc">Convert JSON data into<br>spreadsheet-ready formats___</div>
+            </button>
+            
+            <button class="tool-card coming-soon" onclick="showComingSoon()" aria-label="Coming soon">
+                <div class="tool-icon">▌</div>
+                <div class="tool-title">Image Compress</div>
+                <div class="tool-desc">Reduce image file sizes<br>without quality loss___</div>
+            </button>
+        </main>
+        
+        <footer class="footer">
+            [ More tools coming soon... ]
+        </footer>
+    </div>
+    
+    <script>
+        // Theme Management System
+        const body = document.body;
+        const themeBtn = document.getElementById('theme-btn');
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+        // Apply theme
+        function applyTheme(preference) {
+            const isSystemDark = mediaQuery.matches;
+            let finalTheme;
+
+            if (preference === 'system') {
+                finalTheme = isSystemDark ? 'dark' : 'light';
+            } else {
+                finalTheme = preference;
+            }
+
+            body.classList.remove('dark-mode', 'light-mode', 'loading');
+            body.classList.add(finalTheme + '-mode');
+            
+            updateButton(preference, finalTheme);
+        }
+
+        // Update button icon
+        function updateButton(preference, actualTheme) {
+            if (preference === 'system') {
+                themeBtn.textContent = '🌓';
+                themeBtn.title = `Auto (${actualTheme})`;
+            } else if (actualTheme === 'dark') {
+                themeBtn.textContent = '☀️';
+                themeBtn.title = 'Switch to system';
+            } else {
+                themeBtn.textContent = '🌙';
+                themeBtn.title = 'Switch to dark';
+            }
+        }
+
+        // Cycle: system -> light -> dark -> system
+        function cycleTheme() {
+            const current = localStorage.getItem('themePreference') || 'system';
+            let next;
+
+            if (current === 'system') {
+                next = 'light';
+            } else if (current === 'light') {
+                next = 'dark';
+            } else {
+                next = 'system';
+            }
+            
+            localStorage.setItem('themePreference', next);
+            applyTheme(next);
+        }
+
+        // Show coming soon notification
+        function showComingSoon() {
+            const existing = document.querySelector('.notification');
+            if (existing) existing.remove();
+
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = '[ Coming soon... ]';
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => notification.remove(), 300);
+            }, 1500);
+        }
+
+        // Listen for system theme changes
+        mediaQuery.addEventListener('change', () => {
+            const pref = localStorage.getItem('themePreference') || 'system';
+            if (pref === 'system') {
+                applyTheme('system');
+            }
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedPref = localStorage.getItem('themePreference') || 'system';
+            applyTheme(savedPref);
+        });
+
+        // Apply immediately to reduce flash
+        const immediatePref = localStorage.getItem('themePreference') || 'system';
+        const isImmediateDark = immediatePref === 'dark' || 
+            (immediatePref === 'system' && mediaQuery.matches);
+        
+        body.classList.add(isImmediateDark ? 'dark-mode' : 'light-mode');
+    </script>
+</body>
+</html>
