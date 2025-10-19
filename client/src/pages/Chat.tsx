@@ -1,31 +1,93 @@
-import { useState } from "react";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { useState, useEffect } from "react";
+import { useRoute, useLocation } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { ModelSelector } from "@/components/ModelSelector";
 import { ChatWindow } from "@/components/ChatWindow";
 import { ChatInput } from "@/components/ChatInput";
-import { type Message, type ModelValue } from "@shared/schema";
+import { type Message, type ModelValue, type Conversation } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function Chat() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [, params] = useRoute("/chat/:id");
+  const [, navigate] = useLocation();
+  const conversationId = params?.id ? parseInt(params.id) : null;
+  
   const [selectedModel, setSelectedModel] = useState<ModelValue>("claude-sonnet-4-5");
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const { toast } = useToast();
 
+  const { data: conversation } = useQuery<Conversation>({
+    queryKey: ["/api/conversations", conversationId],
+    queryFn: async () => {
+      if (!conversationId) return null;
+      const response = await fetch(`/api/conversations/${conversationId}`);
+      if (!response.ok) throw new Error("Failed to fetch conversation");
+      return response.json();
+    },
+    enabled: !!conversationId,
+  });
+
+  const { data: messages = [] } = useQuery<Message[]>({
+    queryKey: ["/api/conversations", conversationId, "messages"],
+    queryFn: async () => {
+      if (!conversationId) return [];
+      const response = await fetch(`/api/conversations/${conversationId}/messages`);
+      if (!response.ok) throw new Error("Failed to fetch messages");
+      return response.json();
+    },
+    enabled: !!conversationId,
+  });
+
+  const createConversationMutation = useMutation({
+    mutationFn: async (firstMessage: string) => {
+      const conv = await apiRequest("/api/conversations", {
+        method: "POST",
+        body: JSON.stringify({ title: firstMessage.slice(0, 50) + (firstMessage.length > 50 ? "..." : "") }),
+      });
+      return conv as Conversation;
+    },
+    onSuccess: (newConv) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      navigate(`/chat/${newConv.id}`);
+    },
+  });
+
+  const saveMessageMutation = useMutation({
+    mutationFn: async (message: { conversationId: number; role: string; content: string; model?: string }) => {
+      return await apiRequest("/api/messages", {
+        method: "POST",
+        body: JSON.stringify(message),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+    },
+  });
+
   const handleSendMessage = async (content: string) => {
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content,
-      timestamp: Date.now(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setIsStreaming(true);
-    setStreamingContent("");
-
     try {
+      let activeConversationId = conversationId;
+
+      if (!activeConversationId) {
+        const newConv = await createConversationMutation.mutateAsync(content);
+        activeConversationId = newConv.id;
+      }
+
+      const userMessageData = {
+        conversationId: activeConversationId,
+        role: "user",
+        content,
+        model: undefined,
+      };
+
+      await saveMessageMutation.mutateAsync(userMessageData);
+
+      setIsStreaming(true);
+      setStreamingContent("");
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -34,7 +96,8 @@ export default function Chat() {
         body: JSON.stringify({
           message: content,
           model: selectedModel,
-          conversationHistory: messages,
+          conversationId: activeConversationId,
+          systemPrompt: conversation?.systemPrompt,
         }),
       });
 
@@ -74,15 +137,15 @@ export default function Chat() {
         }
       }
 
-      const assistantMessage: Message = {
-        id: crypto.randomUUID(),
+      const assistantMessageData = {
+        conversationId: activeConversationId,
         role: "assistant",
         content: fullContent,
         model: selectedModel,
-        timestamp: Date.now(),
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      await saveMessageMutation.mutateAsync(assistantMessageData);
+
       setIsStreaming(false);
       setStreamingContent("");
     } catch (error) {
@@ -100,32 +163,24 @@ export default function Chat() {
   return (
     <div className="h-full w-full flex flex-col">
       <div className="max-w-[900px] w-full mx-auto p-4 sm:p-8 flex flex-col h-full">
-        {/* Header */}
-        <header className="flex items-center justify-between border-b-2 border-border pb-4 mb-4">
-          <ThemeToggle />
-          <h1 className="text-2xl sm:text-4xl font-bold tracking-[0.05em] text-center flex-1">
-            ════ CLAUDE CHAT ════
-          </h1>
-          <div className="w-[80px] sm:w-[120px]"></div>
-        </header>
+        <h1 className="text-2xl sm:text-4xl font-bold tracking-[0.05em] text-center border-b-2 border-border pb-4 mb-4">
+          ════ CLAUDE CHAT ════
+        </h1>
 
-        {/* Model Selector */}
         <div className="flex justify-center mb-4">
           <ModelSelector value={selectedModel} onChange={setSelectedModel} />
         </div>
 
         <div className="text-center opacity-80 mb-6 text-sm sm:text-base px-4">
-          [ Chat with Claude AI using a vintage typewriter interface ]
+          {conversation?.title || "[ Chat with Claude AI using a vintage typewriter interface ]"}
         </div>
 
-        {/* Chat Window */}
         <ChatWindow 
           messages={messages} 
           isStreaming={isStreaming}
           streamingContent={streamingContent}
         />
 
-        {/* Input Area */}
         <div className="mt-6">
           <ChatInput onSend={handleSendMessage} disabled={isStreaming} />
         </div>

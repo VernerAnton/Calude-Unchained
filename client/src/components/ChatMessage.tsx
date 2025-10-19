@@ -1,4 +1,4 @@
-import { type Message } from "@shared/schema";
+import { type Message, modelOptions } from "@shared/schema";
 
 interface ChatMessageProps {
   message: Message;
@@ -6,6 +6,12 @@ interface ChatMessageProps {
 
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
+  
+  const getModelLabel = (modelValue?: string | null) => {
+    if (!modelValue) return "";
+    const model = modelOptions.find(m => m.value === modelValue);
+    return model ? model.label : modelValue;
+  };
 
   return (
     <div
@@ -25,7 +31,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
         <div className="flex items-center gap-2 mb-2 text-xs opacity-70 uppercase tracking-wider">
           <span>{isUser ? "[ YOU ]" : "[ CLAUDE ]"}</span>
           {message.model && !isUser && (
-            <span className="text-[10px]">• {message.model.split("-")[1]}</span>
+            <span className="text-[10px]" data-testid={`model-label-${message.id}`}>
+              • {getModelLabel(message.model)}
+            </span>
           )}
         </div>
         <div 
