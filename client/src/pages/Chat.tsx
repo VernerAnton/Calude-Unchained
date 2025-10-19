@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ModelSelector } from "@/components/ModelSelector";
 import { ChatWindow } from "@/components/ChatWindow";
 import { ChatInput } from "@/components/ChatInput";
+import { SystemPromptDialog } from "@/components/SystemPromptDialog";
 import { type Message, type ModelValue, type Conversation } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -160,6 +161,86 @@ export default function Chat() {
     }
   };
 
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (messageId: number) => {
+      return await apiRequest(`/api/messages/${messageId}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId, "messages"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete message",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateSystemPromptMutation = useMutation({
+    mutationFn: async (systemPrompt: string) => {
+      if (!conversationId) return;
+      return await apiRequest(`/api/conversations/${conversationId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ systemPrompt: systemPrompt || null }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId] });
+      toast({
+        title: "Success",
+        description: "System prompt updated",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update system prompt",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSaveSystemPrompt = (systemPrompt: string) => {
+    updateSystemPromptMutation.mutate(systemPrompt);
+  };
+
+  const handleEditMessage = async (messageId: number, newContent: string) => {
+    if (!conversationId) return;
+    
+    await deleteMessageMutation.mutateAsync(messageId);
+    
+    const messagesToDelete = messages.filter(m => m.id > messageId);
+    for (const msg of messagesToDelete) {
+      await deleteMessageMutation.mutateAsync(msg.id);
+    }
+    
+    await handleSendMessage(newContent);
+  };
+
+  const handleRegenerateMessage = async (messageId: number) => {
+    if (!conversationId) return;
+    
+    const messageIndex = messages.findIndex(m => m.id === messageId);
+    if (messageIndex === -1 || messageIndex === 0) return;
+    
+    const previousMessage = messages[messageIndex - 1];
+    if (previousMessage.role !== "user") return;
+    
+    const messagesToDelete = messages.filter(m => m.id >= messageId);
+    for (const msg of messagesToDelete) {
+      await deleteMessageMutation.mutateAsync(msg.id);
+    }
+    
+    await handleSendMessage(previousMessage.content);
+  };
+
+  const handleDeleteMessage = (messageId: number) => {
+    deleteMessageMutation.mutate(messageId);
+  };
+
   return (
     <div className="h-full w-full flex flex-col">
       <div className="max-w-[900px] w-full mx-auto p-4 sm:p-8 flex flex-col h-full">
@@ -167,18 +248,31 @@ export default function Chat() {
           ════ CLAUDE CHAT ════
         </h1>
 
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center items-center gap-4 mb-4">
           <ModelSelector value={selectedModel} onChange={setSelectedModel} />
+          <SystemPromptDialog
+            conversationId={conversationId}
+            currentSystemPrompt={conversation?.systemPrompt}
+            onSave={handleSaveSystemPrompt}
+          />
         </div>
 
         <div className="text-center opacity-80 mb-6 text-sm sm:text-base px-4">
           {conversation?.title || "[ Chat with Claude AI using a vintage typewriter interface ]"}
+          {conversation?.systemPrompt && (
+            <div className="text-xs text-muted-foreground mt-1">
+              [ Custom System Prompt Active ]
+            </div>
+          )}
         </div>
 
         <ChatWindow 
           messages={messages} 
           isStreaming={isStreaming}
           streamingContent={streamingContent}
+          onEditMessage={handleEditMessage}
+          onRegenerateMessage={handleRegenerateMessage}
+          onDeleteMessage={handleDeleteMessage}
         />
 
         <div className="mt-6">

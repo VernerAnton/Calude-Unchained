@@ -6,9 +6,19 @@ interface ChatWindowProps {
   messages: Message[];
   isStreaming: boolean;
   streamingContent: string;
+  onEditMessage?: (messageId: number, newContent: string) => void;
+  onRegenerateMessage?: (messageId: number) => void;
+  onDeleteMessage?: (messageId: number) => void;
 }
 
-export function ChatWindow({ messages, isStreaming, streamingContent }: ChatWindowProps) {
+export function ChatWindow({ 
+  messages, 
+  isStreaming, 
+  streamingContent,
+  onEditMessage,
+  onRegenerateMessage,
+  onDeleteMessage
+}: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -38,7 +48,13 @@ export function ChatWindow({ messages, isStreaming, streamingContent }: ChatWind
       )}
 
       {messages.map((message) => (
-        <ChatMessage key={message.id} message={message} />
+        <ChatMessage 
+          key={message.id} 
+          message={message}
+          onEdit={onEditMessage}
+          onRegenerate={onRegenerateMessage}
+          onDelete={onDeleteMessage}
+        />
       ))}
 
       {isStreaming && (
