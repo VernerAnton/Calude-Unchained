@@ -5,6 +5,7 @@ import { ModelSelector } from "@/components/ModelSelector";
 import { ChatWindow } from "@/components/ChatWindow";
 import { ChatInput } from "@/components/ChatInput";
 import { SystemPromptDialog } from "@/components/SystemPromptDialog";
+import { ExportButton } from "@/components/ExportButton";
 import { type Message, type ModelValue, type Conversation } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -255,6 +256,7 @@ export default function Chat() {
             currentSystemPrompt={conversation?.systemPrompt}
             onSave={handleSaveSystemPrompt}
           />
+          <ExportButton conversation={conversation} messages={messages} />
         </div>
 
         <div className="text-center opacity-80 mb-6 text-sm sm:text-base px-4">
