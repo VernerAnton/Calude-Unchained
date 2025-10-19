@@ -1,18 +1,30 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+// Chat message schema
+export const messageSchema = z.object({
+  id: z.string(),
+  role: z.enum(["user", "assistant"]),
+  content: z.string(),
+  model: z.string().optional(),
+  timestamp: z.number(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export type Message = z.infer<typeof messageSchema>;
+
+// Chat request schema
+export const chatRequestSchema = z.object({
+  message: z.string().min(1, "Message cannot be empty"),
+  model: z.enum(["claude-opus-4-20250514", "claude-sonnet-4-5", "claude-haiku-4-5"]),
+  conversationHistory: z.array(messageSchema).optional(),
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export type ChatRequest = z.infer<typeof chatRequestSchema>;
+
+// Model options for the dropdown
+export const modelOptions = [
+  { label: "Claude 4.1 Opus", value: "claude-opus-4-20250514" },
+  { label: "Claude 4.5 Sonnet", value: "claude-sonnet-4-5" },
+  { label: "Claude 4.5 Haiku", value: "claude-haiku-4-5" },
+] as const;
+
+export type ModelValue = typeof modelOptions[number]["value"];
