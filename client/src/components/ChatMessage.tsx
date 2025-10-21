@@ -61,7 +61,7 @@ export function ChatMessage({ message, onEdit, onRegenerate, onDelete }: ChatMes
         className={`max-w-[75%] p-4 ${
           isUser
             ? "bg-primary text-primary-foreground"
-            : "bg-muted"
+            : "bg-[#f0ede3]"
         }`}
       >
         <div className="flex items-center justify-between gap-2 mb-2">
