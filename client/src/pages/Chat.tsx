@@ -90,17 +90,22 @@ export default function Chat() {
       setIsStreaming(true);
       setStreamingContent("");
 
+      const requestBody: any = {
+        message: content,
+        model: selectedModel,
+        conversationId: activeConversationId,
+      };
+      
+      if (conversation?.systemPrompt) {
+        requestBody.systemPrompt = conversation.systemPrompt;
+      }
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          message: content,
-          model: selectedModel,
-          conversationId: activeConversationId,
-          systemPrompt: conversation?.systemPrompt,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -244,41 +249,52 @@ export default function Chat() {
 
   return (
     <div className="h-full w-full flex flex-col">
-      <div className="max-w-[900px] w-full mx-auto p-4 sm:p-8 flex flex-col h-full">
-        <h1 className="text-2xl sm:text-4xl font-bold tracking-[0.05em] text-center border-b-2 border-border pb-4 mb-4">
-          ════ Claude Unchained ════
-        </h1>
+      <div className="w-full flex flex-col h-full">
+        {/* Header */}
+        <div className="border-b border-border px-6 py-3 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-bold tracking-wide">
+              Claude Unchained
+            </h1>
+            {conversation?.title && (
+              <span className="text-sm text-muted-foreground">
+                {conversation.title}
+              </span>
+            )}
+            {conversation?.systemPrompt && (
+              <span className="text-xs text-muted-foreground">
+                • Custom Prompt
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <ModelSelector value={selectedModel} onChange={setSelectedModel} />
+            <SystemPromptDialog
+              conversationId={conversationId}
+              currentSystemPrompt={conversation?.systemPrompt}
+              onSave={handleSaveSystemPrompt}
+            />
+            <ExportButton conversation={conversation} messages={messages} />
+          </div>
+        </div>
 
-        <div className="flex justify-center items-center gap-4 mb-4">
-          <ModelSelector value={selectedModel} onChange={setSelectedModel} />
-          <SystemPromptDialog
-            conversationId={conversationId}
-            currentSystemPrompt={conversation?.systemPrompt}
-            onSave={handleSaveSystemPrompt}
+        {/* Chat Messages - Full Width */}
+        <div className="flex-1 overflow-hidden">
+          <ChatWindow 
+            messages={messages} 
+            isStreaming={isStreaming}
+            streamingContent={streamingContent}
+            onEditMessage={handleEditMessage}
+            onRegenerateMessage={handleRegenerateMessage}
+            onDeleteMessage={handleDeleteMessage}
           />
-          <ExportButton conversation={conversation} messages={messages} />
         </div>
 
-        <div className="text-center opacity-80 mb-6 text-sm sm:text-base px-4">
-          {conversation?.title || "[ Chat with Claude AI using a vintage typewriter interface ]"}
-          {conversation?.systemPrompt && (
-            <div className="text-xs text-muted-foreground mt-1">
-              [ Custom System Prompt Active ]
-            </div>
-          )}
-        </div>
-
-        <ChatWindow 
-          messages={messages} 
-          isStreaming={isStreaming}
-          streamingContent={streamingContent}
-          onEditMessage={handleEditMessage}
-          onRegenerateMessage={handleRegenerateMessage}
-          onDeleteMessage={handleDeleteMessage}
-        />
-
-        <div className="mt-6">
-          <ChatInput onSend={handleSendMessage} disabled={isStreaming} />
+        {/* Input Area */}
+        <div className="border-t border-border px-6 py-4 flex-shrink-0">
+          <div className="max-w-[900px] mx-auto">
+            <ChatInput onSend={handleSendMessage} disabled={isStreaming} />
+          </div>
         </div>
       </div>
     </div>

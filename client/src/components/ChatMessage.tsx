@@ -54,24 +54,21 @@ export function ChatMessage({ message, onEdit, onRegenerate, onDelete }: ChatMes
 
   return (
     <div
-      className={`flex ${isUser ? "justify-end" : "justify-start"} mb-6 group`}
+      className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4 group px-4`}
       data-testid={`message-${message.role}-${message.id}`}
     >
       <div
-        className={`max-w-[85%] sm:max-w-[75%] border-2 border-border p-4 ${
+        className={`max-w-[75%] rounded-lg p-4 ${
           isUser
-            ? "bg-card text-card-foreground"
-            : "bg-card text-card-foreground shadow-md"
+            ? "bg-primary text-primary-foreground"
+            : "bg-muted"
         }`}
-        style={{
-          boxShadow: isUser ? "none" : "4px 4px 0px hsl(var(--border))",
-        }}
       >
         <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2 text-xs opacity-70 uppercase tracking-wider">
-            <span>{isUser ? "[ YOU ]" : "[ CLAUDE ]"}</span>
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
+            <span>{isUser ? "You" : "Claude"}</span>
             {message.model && !isUser && (
-              <span className="text-[10px]" data-testid={`model-label-${message.id}`}>
+              <span className="text-[10px] opacity-70" data-testid={`model-label-${message.id}`}>
                 • {getModelLabel(message.model)}
               </span>
             )}
@@ -103,7 +100,7 @@ export function ChatMessage({ message, onEdit, onRegenerate, onDelete }: ChatMes
                 data-testid={`button-cancel-edit-${message.id}`}
               >
                 <X className="h-4 w-4 mr-1" />
-                CANCEL
+                Cancel
               </Button>
               <Button
                 size="sm"
@@ -112,7 +109,7 @@ export function ChatMessage({ message, onEdit, onRegenerate, onDelete }: ChatMes
                 data-testid={`button-save-edit-${message.id}`}
               >
                 <Check className="h-4 w-4 mr-1" />
-                SAVE
+                Save
               </Button>
             </div>
           </div>
