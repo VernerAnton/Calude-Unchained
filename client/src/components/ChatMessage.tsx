@@ -58,7 +58,7 @@ export function ChatMessage({ message, onEdit, onRegenerate, onDelete }: ChatMes
       data-testid={`message-${message.role}-${message.id}`}
     >
       <div
-        className={`max-w-[75%] rounded-lg p-4 ${
+        className={`max-w-[75%] p-4 ${
           isUser
             ? "bg-primary text-primary-foreground"
             : "bg-muted"

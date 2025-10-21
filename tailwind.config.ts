@@ -6,9 +6,9 @@ export default {
   theme: {
     extend: {
       borderRadius: {
-        lg: "0.5rem",
-        md: "0.375rem",
-        sm: "0.125rem",
+        lg: "0rem",
+        md: "0rem",
+        sm: "0rem",
       },
       colors: {
         // Light mode - warm paper tones

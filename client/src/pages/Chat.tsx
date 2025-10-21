@@ -292,9 +292,7 @@ export default function Chat() {
 
         {/* Input Area */}
         <div className="border-t border-border px-6 py-4 flex-shrink-0">
-          <div className="max-w-[900px] mx-auto">
-            <ChatInput onSend={handleSendMessage} disabled={isStreaming} />
-          </div>
+          <ChatInput onSend={handleSendMessage} disabled={isStreaming} />
         </div>
       </div>
     </div>

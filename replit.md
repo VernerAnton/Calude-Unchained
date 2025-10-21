@@ -8,7 +8,15 @@ This full-stack web application provides a custom interface for chatting with Cl
 
 ## Recent Changes
 
-**October 19, 2025 - Final Release**
+**October 21, 2025 - Major UI Redesign**
+- **Branding Update:** Changed title from "CLAUDE CHAT" to "Claude Unchained"
+- **Full-Screen Layout:** Chat window now expands to full available width with collapsible sidebar
+- **Professional Message Design:** User messages aligned right (dark grey), assistant messages aligned left (light grey)
+- **Sharp Corners:** All elements use sharp 0px border-radius for clean, modern aesthetic
+- **Improved Contrast:** Enhanced light mode readability with darker message bubbles, refined dark mode with subtler user message colors
+- **Streamlined Header:** Compact header bar with title, conversation info, and controls
+
+**October 19, 2025 - Initial Release**
 - **Database Implementation:** PostgreSQL with conversations and messages tables
 - **Multi-Conversation Management:** Shadcn sidebar with conversation list and navigation
 - **Conversation Persistence:** Auto-save messages to database after streaming
@@ -37,19 +45,22 @@ This full-stack web application provides a custom interface for chatting with Cl
 - **Model labels** - each assistant message displays which Claude model was used
 
 ### Design & UX
-- **Typewriter aesthetic** with Courier New monospace font throughout
-- **Hard-edged borders** with signature 4px solid shadows
+- **Professional modern design** with Courier New monospace font throughout
+- **Sharp corners** on all UI elements (0px border-radius)
+- **Full-screen layout** with collapsible sidebar navigation
+- **Differentiated message alignment**: User messages right, assistant messages left
 - **Warm gradient backgrounds** (paper tones in light, terminal in dark)
 - **Three-state theme toggle**: System preference, Light mode, Dark mode
 - **Responsive layout** optimized for desktop, tablet, and mobile
 - **Accessible interactions** with proper ARIA labels and keyboard support
 
 ### Visual Details
-- Message bubbles with distinct user/assistant styling
-- Empty state with centered "READY TO CHAT" message
+- User messages: Right-aligned with dark grey background (#595959 in dark mode, #292929 in light mode)
+- Assistant messages: Left-aligned with light grey background (#333333 in dark mode, #D6D6D6 in light mode)
+- Compact header bar with conversation title and controls
+- Empty state with chat bubble emoji and "Ready to chat" message
 - Loading states with animated blinking cursor (▌)
-- Beautiful hover states with extended shadows
-- Smooth transitions between themes (0.3s ease)
+- Smooth transitions between themes
 
 ## Project Architecture
 
@@ -122,27 +133,30 @@ This full-stack web application provides a custom interface for chatting with Cl
 ### Color Palette
 **Light Mode:**
 - Background: Linear gradient #f4f1ea → #ebe7db (warm paper)
-- Foreground: #2a2a2a (ink black)
-- Card: #fefdfb (fresh paper)
-- Borders/Shadows: #2a2a2a
+- Foreground: #292929 (dark grey text)
+- Primary (User messages): #292929 (dark grey, 16% lightness)
+- Muted (Assistant messages): #D6D6D6 (light grey, 84% lightness)
+- Border: #292929
 
 **Dark Mode:**
 - Background: Linear gradient #1a1a1a → #0d0d0d (deep terminal)
-- Foreground: #e0e0e0 (phosphor glow)
-- Card: #2a2a2a (charcoal)
-- Borders/Shadows: #e0e0e0
+- Foreground: #E0E0E0 (light grey text)
+- Primary (User messages): #595959 (medium grey, 35% lightness)
+- Muted (Assistant messages): #333333 (dark grey, 20% lightness)
+- Border: #E0E0E0
 
 ### Typography
 - All text: 'Courier New', Courier, monospace
-- Titles: 2.5rem (responsive to 1.5rem), bold, 0.05em letter-spacing
-- Body: 0.875-1rem, 1.3-1.5 line-height
-- Labels: Uppercase, 0.1em letter-spacing
+- Header title: 1.125rem (18px), bold
+- Body: 0.875-1rem, 1.5 line-height
+- Message labels: Uppercase, 0.1em letter-spacing, font-semibold
 
-### Spacing & Shadows
-- Standard spacing: 0.5rem, 1rem, 1.5rem, 2rem increments
-- Signature shadow: 4px 4px 0px (theme color)
-- Hover shadow: 6px 6px 0px (theme color)
-- No border-radius (hard edges throughout)
+### Layout & Spacing
+- Full-screen chat window (max-width 900px centered for readability)
+- Message bubbles: max-width 75%, padding 1rem
+- Header: Compact with border-bottom separator
+- Input area: Centered max-width 900px
+- Border-radius: 0px on all elements (sharp corners)
 
 ## Data Persistence
 
@@ -201,9 +215,12 @@ All originally planned features have been implemented:
 ## Implementation Notes
 
 **Visual Design:**
-- Typewriter aesthetic is purely CSS-based (no images required)
-- All components follow strict design guidelines for consistent styling
-- Hard edges (no border-radius), 4px shadows, Courier New font throughout
+- Modern professional aesthetic inspired by official Claude app
+- Sharp corners (0px border-radius) on all UI elements
+- User messages right-aligned with dark background
+- Assistant messages left-aligned with light background  
+- Full-width layout with collapsible sidebar
+- Courier New monospace font throughout
 - Streaming responses provide immediate feedback for better UX
 - Theme system respects system preferences by default
 
