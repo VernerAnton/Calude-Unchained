@@ -246,7 +246,7 @@ export default function Chat() {
     <div className="h-full w-full flex flex-col">
       <div className="max-w-[900px] w-full mx-auto p-4 sm:p-8 flex flex-col h-full">
         <h1 className="text-2xl sm:text-4xl font-bold tracking-[0.05em] text-center border-b-2 border-border pb-4 mb-4">
-          ════ CLAUDE CHAT ════
+          ════ Claude Unchained ════
         </h1>
 
         <div className="flex justify-center items-center gap-4 mb-4">
