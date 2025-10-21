@@ -279,16 +279,14 @@ export default function Chat() {
         </div>
 
         {/* Chat Messages - Full Width */}
-        <div className="flex-1 overflow-hidden">
-          <ChatWindow 
-            messages={messages} 
-            isStreaming={isStreaming}
-            streamingContent={streamingContent}
-            onEditMessage={handleEditMessage}
-            onRegenerateMessage={handleRegenerateMessage}
-            onDeleteMessage={handleDeleteMessage}
-          />
-        </div>
+        <ChatWindow 
+          messages={messages} 
+          isStreaming={isStreaming}
+          streamingContent={streamingContent}
+          onEditMessage={handleEditMessage}
+          onRegenerateMessage={handleRegenerateMessage}
+          onDeleteMessage={handleDeleteMessage}
+        />
 
         {/* Input Area */}
         <div className="border-t border-border px-6 py-4 flex-shrink-0">
