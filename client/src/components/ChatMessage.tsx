@@ -57,13 +57,7 @@ export function ChatMessage({ message, onEdit, onRegenerate, onDelete }: ChatMes
       className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4 group px-4`}
       data-testid={`message-${message.role}-${message.id}`}
     >
-      <div
-        className={`max-w-[75%] p-4 ${
-          isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-[#f0ede3]"
-        }`}
-      >
+      <div className="max-w-[75%] p-4">
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
             <span>{isUser ? "You" : "Claude"}</span>

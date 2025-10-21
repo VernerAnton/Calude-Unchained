@@ -58,7 +58,7 @@ export function ChatWindow({
 
       {isStreaming && (
         <div className="flex justify-start mb-4 px-4" data-testid="streaming-message">
-          <div className="max-w-[75%] p-4 bg-muted">
+          <div className="max-w-[75%] p-4">
             <div className="flex items-center gap-2 mb-2 text-xs font-semibold uppercase tracking-wider">
               <span>Claude</span>
             </div>

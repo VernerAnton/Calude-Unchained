@@ -11,9 +11,8 @@ This full-stack web application provides a custom interface for chatting with Cl
 **October 21, 2025 - Major UI Redesign**
 - **Branding Update:** Changed title from "CLAUDE CHAT" to "Claude Unchained"
 - **Full-Screen Layout:** Chat window now expands to full available width with collapsible sidebar
-- **Professional Message Design:** User messages aligned right (dark grey), assistant messages aligned left (light grey)
+- **Minimal Message Design:** User messages aligned right, assistant messages aligned left, no background bubbles for clean aesthetic
 - **Sharp Corners:** All elements use sharp 0px border-radius for clean, modern aesthetic
-- **Improved Contrast:** Enhanced light mode readability with darker message bubbles, refined dark mode with subtler user message colors
 - **Streamlined Header:** Compact header bar with title, conversation info, and controls
 
 **October 19, 2025 - Initial Release**
@@ -55,8 +54,8 @@ This full-stack web application provides a custom interface for chatting with Cl
 - **Accessible interactions** with proper ARIA labels and keyboard support
 
 ### Visual Details
-- User messages: Right-aligned with light grey background (#C7C7C7) and dark text (#292929) in light mode, dark grey background (#595959) and light text in dark mode
-- Assistant messages: Left-aligned with light grey background (#D6D6D6) and white text (#FCFCFC) in light mode, dark grey background (#333333) and light text in dark mode
+- User messages: Right-aligned with no background, using default text color
+- Assistant messages: Left-aligned with no background, using default text color
 - Compact header bar with conversation title and controls
 - Empty state with chat bubble emoji and "Ready to chat" message
 - Loading states with animated blinking cursor (▌)
