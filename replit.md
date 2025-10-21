@@ -55,8 +55,8 @@ This full-stack web application provides a custom interface for chatting with Cl
 - **Accessible interactions** with proper ARIA labels and keyboard support
 
 ### Visual Details
-- User messages: Right-aligned with dark grey background (#595959 in dark mode, #292929 in light mode)
-- Assistant messages: Left-aligned with light grey background (#333333 in dark mode, #D6D6D6 in light mode)
+- User messages: Right-aligned with light grey background (#C7C7C7) and dark text (#292929) in light mode, dark grey background (#595959) and light text in dark mode
+- Assistant messages: Left-aligned with light grey background (#D6D6D6) and white text (#FCFCFC) in light mode, dark grey background (#333333) and light text in dark mode
 - Compact header bar with conversation title and controls
 - Empty state with chat bubble emoji and "Ready to chat" message
 - Loading states with animated blinking cursor (▌)
@@ -134,8 +134,10 @@ This full-stack web application provides a custom interface for chatting with Cl
 **Light Mode:**
 - Background: Linear gradient #f4f1ea → #ebe7db (warm paper)
 - Foreground: #292929 (dark grey text)
-- Primary (User messages): #292929 (dark grey, 16% lightness)
-- Muted (Assistant messages): #D6D6D6 (light grey, 84% lightness)
+- Primary (User messages): #C7C7C7 (light grey bubble, 78% lightness)
+- Primary Foreground (User text): #292929 (dark grey text, 16% lightness)
+- Muted (Assistant messages): #D6D6D6 (light grey bubble, 84% lightness)
+- Muted Foreground (Assistant text): #FCFCFC (white text, 99% lightness)
 - Border: #292929
 
 **Dark Mode:**
