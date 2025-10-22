@@ -79,8 +79,8 @@ export function AppSidebar() {
     }
   };
 
-  const currentConversationId = location.startsWith("/chat/") 
-    ? parseInt(location.split("/")[2]) 
+  const currentConversationId = location.startsWith("/chat/")
+    ? parseInt(location.split("/")[2])
     : null;
 
   return (
