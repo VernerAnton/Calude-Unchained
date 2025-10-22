@@ -271,29 +271,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = chatRequestSchema.parse(req.body);
       const { message: userMessage, model, conversationId, systemPrompt } = validatedData;
 
+      if (!conversationId) {
+        res.status(400).json({ error: "conversationId is required" });
+        return;
+      }
+
+      // Save user message to database first
+      await storage.createMessage({
+        conversationId,
+        role: "user",
+        content: userMessage,
+      });
+
       // Set headers for SSE streaming
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      // Build conversation history for Claude API
+      // Build conversation history for Claude API (now includes the user message we just saved)
       const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
       
-      // Load conversation history from database if conversationId provided
-      if (conversationId) {
-        const dbMessages = await storage.getMessages(conversationId);
-        dbMessages.forEach((msg) => {
-          messages.push({
-            role: msg.role as "user" | "assistant",
-            content: msg.content,
-          });
+      const dbMessages = await storage.getMessages(conversationId);
+      dbMessages.forEach((msg) => {
+        messages.push({
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
         });
-      }
-
-      // Add current user message
-      messages.push({
-        role: "user",
-        content: userMessage,
       });
 
       // Build stream options
@@ -311,13 +314,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Stream response from Claude
       const stream = await anthropic.messages.stream(streamOptions);
 
+      let fullContent = "";
+
       // Process streaming response
       for await (const chunk of stream) {
         if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+          fullContent += chunk.delta.text;
           const data = JSON.stringify({ content: chunk.delta.text });
           res.write(`data: ${data}\n\n`);
         }
       }
+
+      // Save assistant response to database
+      await storage.createMessage({
+        conversationId,
+        role: "assistant",
+        content: fullContent,
+        model,
+      });
 
       // Send completion signal
       res.write(`data: [DONE]\n\n`);
