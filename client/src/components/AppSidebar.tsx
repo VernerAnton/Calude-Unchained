@@ -89,15 +89,16 @@ export function AppSidebar() {
         <div className="text-xl font-bold tracking-[0.05em] mb-3">
           ══ CLAUDE ══
         </div>
-        <Button
+        <button
           onClick={handleNewChat}
-          className="w-full"
           disabled={createConversationMutation.isPending}
+          className="w-full border-2 border-border bg-card text-card-foreground px-4 py-2 font-bold uppercase tracking-wider transition-all hover-elevate active-elevate-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}
           data-testid="button-new-conversation"
         >
-          <Plus className="mr-2 h-4 w-4" />
+          <Plus className="h-4 w-4" />
           NEW CHAT
-        </Button>
+        </button>
       </SidebarHeader>
 
       <SidebarContent>
