@@ -79,15 +79,6 @@ export default function Chat() {
         activeConversationId = newConv.id;
       }
 
-      const userMessageData = {
-        conversationId: activeConversationId,
-        role: "user",
-        content,
-        model: undefined,
-      };
-
-      await saveMessageMutation.mutateAsync(userMessageData);
-
       setIsStreaming(true);
       setStreamingContent("");
 
@@ -145,14 +136,9 @@ export default function Chat() {
         }
       }
 
-      const assistantMessageData = {
-        conversationId: activeConversationId,
-        role: "assistant",
-        content: fullContent,
-        model: selectedModel,
-      };
-
-      await saveMessageMutation.mutateAsync(assistantMessageData);
+      // Invalidate queries to refresh messages from database
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
 
       setIsStreaming(false);
       setStreamingContent("");
