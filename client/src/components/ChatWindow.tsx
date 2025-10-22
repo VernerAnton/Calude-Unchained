@@ -23,7 +23,7 @@ export function ChatWindow({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { displayedText, isTyping } = useTypewriter({
     text: streamingContent,
-    speed: 30,
+    speed: 20,
     enabled: isStreaming
   });
 
