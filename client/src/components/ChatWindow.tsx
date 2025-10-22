@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { type Message } from "@shared/schema";
 import { ChatMessage } from "./ChatMessage";
+import { useTypewriter } from "@/hooks/use-typewriter";
 
 interface ChatWindowProps {
   messages: Message[];
@@ -11,15 +12,20 @@ interface ChatWindowProps {
   onDeleteMessage?: (messageId: number) => void;
 }
 
-export function ChatWindow({ 
-  messages, 
-  isStreaming, 
+export function ChatWindow({
+  messages,
+  isStreaming,
   streamingContent,
   onEditMessage,
   onRegenerateMessage,
   onDeleteMessage
 }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { displayedText, isTyping } = useTypewriter({
+    text: streamingContent,
+    speed: 30,
+    enabled: isStreaming
+  });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -27,7 +33,7 @@ export function ChatWindow({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, streamingContent]);
+  }, [messages, displayedText]);
 
   return (
     <div
@@ -63,8 +69,10 @@ export function ChatWindow({
               <span>Claude</span>
             </div>
             <div className="whitespace-pre-wrap break-words leading-relaxed">
-              {streamingContent}
-              <span className="inline-block animate-blink ml-1">▌</span>
+              {displayedText}
+              {(isStreaming || isTyping) && (
+                <span className="inline-block animate-blink ml-1">▌</span>
+              )}
             </div>
           </div>
         </div>
