@@ -87,7 +87,7 @@ export function AppSidebar() {
     <Sidebar data-testid="sidebar-conversations">
       <SidebarHeader className="p-4 border-b-2 border-border">
         <div className="text-xl font-bold tracking-[0.05em] mb-3">
-          ══ CLAUDE ══
+          ══ CLAUDE UNCHAINED ══
         </div>
         <Button
           onClick={handleNewChat}
