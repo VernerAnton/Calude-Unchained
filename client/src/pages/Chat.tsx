@@ -251,7 +251,7 @@ export default function Chat() {
     <div className="h-full w-full flex flex-col">
       <div className="w-full flex flex-col h-full">
         {/* Header */}
-        <div className="border-b border-border px-6 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="border-b-2 border-border px-6 py-3 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-4">
             <h1 className="text-lg font-bold tracking-wide">
               Claude Unchained
@@ -289,7 +289,7 @@ export default function Chat() {
         />
 
         {/* Input Area */}
-        <div className="border-t border-border px-6 py-4 flex-shrink-0">
+        <div className="border-t-2 border-border px-6 py-4 flex-shrink-0">
           <ChatInput onSend={handleSendMessage} disabled={isStreaming} />
         </div>
       </div>
