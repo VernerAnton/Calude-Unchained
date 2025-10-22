@@ -9,8 +9,21 @@ interface UseTypewriterOptions {
 export function useTypewriter({ text, speed = 30, enabled = true }: UseTypewriterOptions) {
   const [displayedText, setDisplayedText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const indexRef = useRef(0);
+  const currentIndexRef = useRef(0);
+  const targetTextRef = useRef(text);
 
+  // Update target text when it changes
+  useEffect(() => {
+    targetTextRef.current = text;
+
+    // If text was cleared/reset (became shorter than what we're displaying), reset
+    if (text.length < currentIndexRef.current) {
+      currentIndexRef.current = 0;
+      setDisplayedText("");
+    }
+  }, [text]);
+
+  // Main typing effect
   useEffect(() => {
     if (!enabled) {
       setDisplayedText(text);
@@ -18,32 +31,20 @@ export function useTypewriter({ text, speed = 30, enabled = true }: UseTypewrite
       return;
     }
 
-    // If text got shorter (e.g., reset), reset the index
-    if (text.length < indexRef.current) {
-      indexRef.current = 0;
-      setDisplayedText("");
-    }
-
-    // If we're already showing all the text, no need to type
-    if (indexRef.current >= text.length) {
-      setIsTyping(false);
-      return;
-    }
-
-    setIsTyping(true);
-
     const timer = setInterval(() => {
-      if (indexRef.current < text.length) {
-        indexRef.current += 1;
-        setDisplayedText(text.slice(0, indexRef.current));
+      const targetText = targetTextRef.current;
+
+      if (currentIndexRef.current < targetText.length) {
+        setIsTyping(true);
+        currentIndexRef.current += 1;
+        setDisplayedText(targetText.slice(0, currentIndexRef.current));
       } else {
         setIsTyping(false);
-        clearInterval(timer);
       }
     }, speed);
 
     return () => clearInterval(timer);
-  }, [text, speed, enabled]);
+  }, [speed, enabled]);
 
   return { displayedText, isTyping };
 }
