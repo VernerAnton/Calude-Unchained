@@ -6,6 +6,7 @@ import { ChatWindow } from "@/components/ChatWindow";
 import { ChatInput } from "@/components/ChatInput";
 import { SystemPromptDialog } from "@/components/SystemPromptDialog";
 import { ExportButton } from "@/components/ExportButton";
+import { EditableChatTitle } from "@/components/EditableChatTitle";
 import { type Message, type ModelValue, type Conversation } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -213,6 +214,35 @@ export default function Chat() {
     updateSystemPromptMutation.mutate(systemPrompt);
   };
 
+  const updateTitleMutation = useMutation({
+    mutationFn: async (newTitle: string) => {
+      if (!conversationId) return;
+      return await apiRequest(`/api/conversations/${conversationId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: newTitle }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      toast({
+        title: "Success",
+        description: "Chat title updated",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update chat title",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSaveTitle = (newTitle: string) => {
+    updateTitleMutation.mutate(newTitle);
+  };
+
   const handleEditMessage = async (messageId: number, newContent: string) => {
     if (!conversationId) return;
     
@@ -253,13 +283,16 @@ export default function Chat() {
         {/* Header */}
         <div className="border-b-2 border-border px-6 py-3 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-4">
-            <h1 className="text-lg font-bold tracking-wide">
-              Claude Unchained
-            </h1>
-            {conversation?.title && (
-              <span className="text-sm text-muted-foreground">
-                {conversation.title}
-              </span>
+            {conversation?.title ? (
+              <EditableChatTitle
+                title={conversation.title}
+                onSave={handleSaveTitle}
+                disabled={updateTitleMutation.isPending}
+              />
+            ) : (
+              <h1 className="text-lg font-bold tracking-wide text-muted-foreground">
+                New Chat
+              </h1>
             )}
             {conversation?.systemPrompt && (
               <span className="text-xs text-muted-foreground">
