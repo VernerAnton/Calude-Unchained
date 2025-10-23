@@ -7,24 +7,32 @@ interface UseTypewriterOptions {
 }
 
 export function useTypewriter({ text, speed = 20, enabled = true }: UseTypewriterOptions) {
-  const [displayedText, setDisplayedText] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+  const = useState("");
+  const = useState(false);
+  
   const animationFrameRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
   const currentIndexRef = useRef(0);
+  const targetTextRef = useRef(text);
 
+  // Update target text when it changes
+  useEffect(() => {
+    targetTextRef.current = text;
+
+    // If text was cleared/reset (became shorter than what we're displaying), reset
+    if (text.length < currentIndexRef.current) {
+      currentIndexRef.current = 0;
+      setDisplayedText("");
+      lastUpdateRef.current = 0;
+    }
+  }, [text]);
+
+  // Main typing effect using requestAnimationFrame for smooth animation
   useEffect(() => {
     if (!enabled) {
       setDisplayedText(text);
       setIsTyping(false);
       return;
-    }
-
-    // Reset if text becomes shorter (new conversation)
-    if (text.length < currentIndexRef.current) {
-      currentIndexRef.current = 0;
-      setDisplayedText("");
-      lastUpdateRef.current = 0;
     }
 
     const animate = (timestamp: number) => {
@@ -33,11 +41,12 @@ export function useTypewriter({ text, speed = 20, enabled = true }: UseTypewrite
       }
 
       const elapsed = timestamp - lastUpdateRef.current;
+      const targetText = targetTextRef.current;
 
       if (elapsed >= speed) {
-        if (currentIndexRef.current < text.length) {
+        if (currentIndexRef.current < targetText.length) {
           currentIndexRef.current += 1;
-          setDisplayedText(text.slice(0, currentIndexRef.current));
+          setDisplayedText(targetText.slice(0, currentIndexRef.current));
           setIsTyping(true);
           lastUpdateRef.current = timestamp;
         } else {
@@ -45,7 +54,7 @@ export function useTypewriter({ text, speed = 20, enabled = true }: UseTypewrite
         }
       }
 
-      if (currentIndexRef.current < text.length) {
+      if (currentIndexRef.current < targetText.length) {
         animationFrameRef.current = requestAnimationFrame(animate);
       }
     };
