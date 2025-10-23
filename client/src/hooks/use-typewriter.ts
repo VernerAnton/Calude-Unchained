@@ -7,8 +7,8 @@ interface UseTypewriterOptions {
 }
 
 export function useTypewriter({ text, speed = 20, enabled = true }: UseTypewriterOptions) {
-  const = useState("");
-  const = useState(false);
+  const [displayedText, setDisplayedText] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
   
   const animationFrameRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
