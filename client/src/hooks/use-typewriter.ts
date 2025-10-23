@@ -6,9 +6,12 @@ interface UseTypewriterOptions {
   enabled?: boolean;
 }
 
-export function useTypewriter({ text, speed = 30, enabled = true }: UseTypewriterOptions) {
-  const [displayedText, setDisplayedText] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+export function useTypewriter({ text, speed = 20, enabled = true }: UseTypewriterOptions) {
+  const = useState("");
+  const = useState(false);
+  
+  const animationFrameRef = useRef<number>();
+  const lastUpdateRef = useRef<number>(0);
   const currentIndexRef = useRef(0);
   const targetTextRef = useRef(text);
 
@@ -20,10 +23,11 @@ export function useTypewriter({ text, speed = 30, enabled = true }: UseTypewrite
     if (text.length < currentIndexRef.current) {
       currentIndexRef.current = 0;
       setDisplayedText("");
+      lastUpdateRef.current = 0;
     }
   }, [text]);
 
-  // Main typing effect
+  // Main typing effect using requestAnimationFrame for smooth animation
   useEffect(() => {
     if (!enabled) {
       setDisplayedText(text);
@@ -31,20 +35,38 @@ export function useTypewriter({ text, speed = 30, enabled = true }: UseTypewrite
       return;
     }
 
-    const timer = setInterval(() => {
+    const animate = (timestamp: number) => {
+      if (!lastUpdateRef.current) {
+        lastUpdateRef.current = timestamp;
+      }
+
+      const elapsed = timestamp - lastUpdateRef.current;
       const targetText = targetTextRef.current;
 
-      if (currentIndexRef.current < targetText.length) {
-        setIsTyping(true);
-        currentIndexRef.current += 1;
-        setDisplayedText(targetText.slice(0, currentIndexRef.current));
-      } else {
-        setIsTyping(false);
+      if (elapsed >= speed) {
+        if (currentIndexRef.current < targetText.length) {
+          currentIndexRef.current += 1;
+          setDisplayedText(targetText.slice(0, currentIndexRef.current));
+          setIsTyping(true);
+          lastUpdateRef.current = timestamp;
+        } else {
+          setIsTyping(false);
+        }
       }
-    }, speed);
 
-    return () => clearInterval(timer);
-  }, [speed, enabled]);
+      if (currentIndexRef.current < targetText.length) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+      }
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [text, speed, enabled]);
 
   return { displayedText, isTyping };
 }
