@@ -19,8 +19,6 @@ export default function Chat() {
   const [selectedModel, setSelectedModel] = useState<ModelValue>("claude-sonnet-4-5");
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
-  const [bufferedContent, setBufferedContent] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
   const { toast } = useToast();
 
   const { data: conversation } = useQuery<Conversation>({
@@ -72,17 +70,6 @@ export default function Chat() {
     },
   });
 
-  const handleTypewriterComplete = async () => {
-    setIsTyping(false);
-    setBufferedContent("");
-    
-    // Refresh from database to replace optimistic data
-    if (conversationId) {
-      await queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId, "messages"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
-    }
-  };
-
   const handleSendMessage = async (content: string) => {
     let activeConversationId = conversationId;
     let optimisticMessage: Message | null = null;
@@ -109,8 +96,6 @@ export default function Chat() {
 
       setIsStreaming(true);
       setStreamingContent("");
-      setBufferedContent("");
-      setIsTyping(false);
 
       const requestBody: any = {
         message: content,
@@ -166,13 +151,12 @@ export default function Chat() {
         }
       }
 
-      // Streaming complete - trigger typewriter effect
+      // Refresh from database to replace optimistic data
+      await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+
       setIsStreaming(false);
       setStreamingContent("");
-      setBufferedContent(fullContent);
-      setIsTyping(true);
-
-      // Note: We'll clear bufferedContent and refresh queries after typewriter completes
     } catch (error) {
       console.error("Error sending message:", error);
       
@@ -191,8 +175,6 @@ export default function Chat() {
       });
       setIsStreaming(false);
       setStreamingContent("");
-      setBufferedContent("");
-      setIsTyping(false);
     }
   };
 
@@ -344,9 +326,6 @@ export default function Chat() {
           messages={messages} 
           isStreaming={isStreaming}
           streamingContent={streamingContent}
-          bufferedContent={bufferedContent}
-          isTyping={isTyping}
-          onTypewriterComplete={handleTypewriterComplete}
           onEditMessage={handleEditMessage}
           onRegenerateMessage={handleRegenerateMessage}
           onDeleteMessage={handleDeleteMessage}
@@ -354,7 +333,7 @@ export default function Chat() {
 
         {/* Input Area */}
         <div className="border-t-2 border-border px-6 py-4 flex-shrink-0">
-          <ChatInput onSend={handleSendMessage} disabled={isStreaming || isTyping} />
+          <ChatInput onSend={handleSendMessage} disabled={isStreaming} />
         </div>
       </div>
     </div>
