@@ -19,7 +19,6 @@ export default function Chat() {
   const [selectedModel, setSelectedModel] = useState<ModelValue>("claude-sonnet-4-5");
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
-  const [optimisticMessage, setOptimisticMessage] = useState<Message | null>(null);
   const { toast } = useToast();
 
   const { data: conversation } = useQuery<Conversation>({
@@ -72,22 +71,28 @@ export default function Chat() {
   });
 
   const handleSendMessage = async (content: string) => {
-    try {
-      let activeConversationId = conversationId;
+    let activeConversationId = conversationId;
+    let optimisticMessage: Message | null = null;
 
+    try {
       if (!activeConversationId) {
         const newConv = await createConversationMutation.mutateAsync(content);
         activeConversationId = newConv.id;
       }
 
-      // Show user message immediately (optimistic UI)
-      setOptimisticMessage({
-        id: -1,
+      // Add optimistic user message to cache
+      optimisticMessage = {
+        id: Date.now(), // Temporary ID
         conversationId: activeConversationId,
         role: "user",
         content,
         createdAt: new Date(),
-      } as Message);
+      } as Message;
+
+      queryClient.setQueryData<Message[]>(
+        ["/api/conversations", activeConversationId, "messages"],
+        (old = []) => [...old, optimisticMessage!]
+      );
 
       setIsStreaming(true);
       setStreamingContent("");
@@ -146,21 +151,28 @@ export default function Chat() {
         }
       }
 
-      // Clear optimistic message and refresh from database
-      setOptimisticMessage(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      // Refresh from database to replace optimistic data
+      await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
 
       setIsStreaming(false);
       setStreamingContent("");
     } catch (error) {
       console.error("Error sending message:", error);
+      
+      // Remove optimistic message on error
+      if (activeConversationId && optimisticMessage) {
+        queryClient.setQueryData<Message[]>(
+          ["/api/conversations", activeConversationId, "messages"],
+          (old = []) => old.filter(m => m.id !== optimisticMessage!.id)
+        );
+      }
+      
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
-      setOptimisticMessage(null);
       setIsStreaming(false);
       setStreamingContent("");
     }
@@ -311,7 +323,7 @@ export default function Chat() {
 
         {/* Chat Messages - Full Width */}
         <ChatWindow 
-          messages={optimisticMessage ? [...messages, optimisticMessage] : messages} 
+          messages={messages} 
           isStreaming={isStreaming}
           streamingContent={streamingContent}
           onEditMessage={handleEditMessage}
