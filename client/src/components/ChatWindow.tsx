@@ -7,6 +7,9 @@ interface ChatWindowProps {
   messages: Message[];
   isStreaming: boolean;
   streamingContent: string;
+  bufferedContent: string;
+  isTyping: boolean;
+  onTypewriterComplete: () => void;
   onEditMessage?: (messageId: number, newContent: string) => void;
   onRegenerateMessage?: (messageId: number) => void;
   onDeleteMessage?: (messageId: number) => void;
@@ -16,17 +19,20 @@ export function ChatWindow({
   messages,
   isStreaming,
   streamingContent,
+  bufferedContent,
+  isTyping,
+  onTypewriterComplete,
   onEditMessage,
   onRegenerateMessage,
   onDeleteMessage
 }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Typewriter effect for streaming content with 15ms per character
-  const { displayedText } = useTypewriter({
-    text: streamingContent,
+  // Typewriter effect for buffered content with 15ms per character
+  const { displayedText, isTyping: typewriterActive } = useTypewriter({
+    text: bufferedContent,
     speed: 15,
-    enabled: isStreaming
+    enabled: isTyping
   });
 
   const scrollToBottom = () => {
@@ -36,6 +42,14 @@ export function ChatWindow({
   useEffect(() => {
     scrollToBottom();
   }, [messages, displayedText]);
+
+  // Detect when typewriter finishes and call completion callback
+  useEffect(() => {
+    if (isTyping && !typewriterActive) {
+      // Call completion even for empty responses to prevent UI deadlock
+      onTypewriterComplete();
+    }
+  }, [isTyping, typewriterActive, onTypewriterComplete]);
 
   return (
     <div
@@ -64,6 +78,7 @@ export function ChatWindow({
         />
       ))}
 
+      {/* Show loading cursor while streaming from backend */}
       {isStreaming && (
         <div className="flex justify-start mb-4 px-4" data-testid="streaming-message">
           <div className="max-w-[75%] p-4">
@@ -71,10 +86,22 @@ export function ChatWindow({
               <span>Claude</span>
             </div>
             <div className="whitespace-pre-wrap break-words leading-relaxed">
+              <span className="inline-block animate-blink">▌</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Show typewriter effect on buffered complete message */}
+      {isTyping && !isStreaming && (
+        <div className="flex justify-start mb-4 px-4" data-testid="typing-message">
+          <div className="max-w-[75%] p-4">
+            <div className="flex items-center gap-2 mb-2 text-xs font-semibold uppercase tracking-wider">
+              <span>Claude</span>
+            </div>
+            <div className="whitespace-pre-wrap break-words leading-relaxed">
               {displayedText}
-              {isStreaming && (
-                <span className="inline-block animate-blink ml-1">▌</span>
-              )}
+              <span className="inline-block animate-blink ml-1">▌</span>
             </div>
           </div>
         </div>
