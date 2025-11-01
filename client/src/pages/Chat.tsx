@@ -19,6 +19,7 @@ export default function Chat() {
   const [selectedModel, setSelectedModel] = useState<ModelValue>("claude-sonnet-4-5");
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [optimisticMessage, setOptimisticMessage] = useState<Message | null>(null);
   const { toast } = useToast();
 
   const { data: conversation } = useQuery<Conversation>({
@@ -79,6 +80,15 @@ export default function Chat() {
         activeConversationId = newConv.id;
       }
 
+      // Show user message immediately (optimistic UI)
+      setOptimisticMessage({
+        id: -1,
+        conversationId: activeConversationId,
+        role: "user",
+        content,
+        createdAt: new Date(),
+      } as Message);
+
       setIsStreaming(true);
       setStreamingContent("");
 
@@ -136,7 +146,8 @@ export default function Chat() {
         }
       }
 
-      // Invalidate queries to refresh messages from database
+      // Clear optimistic message and refresh from database
+      setOptimisticMessage(null);
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
       queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
 
@@ -149,6 +160,7 @@ export default function Chat() {
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
+      setOptimisticMessage(null);
       setIsStreaming(false);
       setStreamingContent("");
     }
@@ -299,7 +311,7 @@ export default function Chat() {
 
         {/* Chat Messages - Full Width */}
         <ChatWindow 
-          messages={messages} 
+          messages={optimisticMessage ? [...messages, optimisticMessage] : messages} 
           isStreaming={isStreaming}
           streamingContent={streamingContent}
           onEditMessage={handleEditMessage}
