@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useChat } from "@ai-sdk/react";
 import { ModelSelector } from "@/components/ModelSelector";
 import { ChatWindow } from "@/components/ChatWindow";
 import { ChatInput } from "@/components/ChatInput";
@@ -17,8 +18,6 @@ export default function Chat() {
   const conversationId = params?.id ? parseInt(params.id) : null;
   
   const [selectedModel, setSelectedModel] = useState<ModelValue>("claude-sonnet-4-5");
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingContent, setStreamingContent] = useState("");
   const { toast } = useToast();
 
   const { data: conversation } = useQuery<Conversation>({
@@ -32,7 +31,7 @@ export default function Chat() {
     enabled: !!conversationId,
   });
 
-  const { data: messages = [] } = useQuery<Message[]>({
+  const { data: dbMessages = [] } = useQuery<Message[]>({
     queryKey: ["/api/conversations", conversationId, "messages"],
     queryFn: async () => {
       if (!conversationId) return [];
@@ -42,6 +41,48 @@ export default function Chat() {
     },
     enabled: !!conversationId,
   });
+
+  // Vercel AI SDK useChat hook for smooth streaming
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    isLoading,
+    setMessages,
+  } = useChat({
+    api: "/api/chat",
+    body: {
+      model: selectedModel,
+      conversationId,
+      systemPrompt: conversation?.systemPrompt,
+    },
+    onFinish: () => {
+      // Refresh messages from database after streaming completes
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send message",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Sync database messages with useChat hook messages when conversation changes
+  useEffect(() => {
+    if (dbMessages.length > 0) {
+      setMessages(dbMessages.map(msg => ({
+        id: String(msg.id),
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+      })));
+    } else {
+      setMessages([]);
+    }
+  }, [conversationId, dbMessages, setMessages]);
 
   const createConversationMutation = useMutation({
     mutationFn: async (firstMessage: string) => {
@@ -57,124 +98,33 @@ export default function Chat() {
     },
   });
 
-  const saveMessageMutation = useMutation({
-    mutationFn: async (message: { conversationId: number; role: string; content: string; model?: string }) => {
-      return await apiRequest("/api/messages", {
-        method: "POST",
-        body: JSON.stringify(message),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId, "messages"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
-    },
-  });
 
   const handleSendMessage = async (content: string) => {
-    let activeConversationId = conversationId;
-    let optimisticMessage: Message | null = null;
-
     try {
-      if (!activeConversationId) {
+      // If no conversation exists, create one first
+      if (!conversationId) {
         const newConv = await createConversationMutation.mutateAsync(content);
-        activeConversationId = newConv.id;
+        // Navigation will happen in the mutation's onSuccess callback
+        // The message will be sent after navigation when the chat loads
+        return;
       }
 
-      // Add optimistic user message to cache
-      optimisticMessage = {
-        id: Date.now(), // Temporary ID
-        conversationId: activeConversationId,
-        role: "user",
-        content,
-        createdAt: new Date(),
-      } as Message;
-
-      queryClient.setQueryData<Message[]>(
-        ["/api/conversations", activeConversationId, "messages"],
-        (old = []) => [...old, optimisticMessage!]
-      );
-
-      setIsStreaming(true);
-      setStreamingContent("");
-
-      const requestBody: any = {
-        message: content,
-        model: selectedModel,
-        conversationId: activeConversationId,
-      };
-      
-      if (conversation?.systemPrompt) {
-        requestBody.systemPrompt = conversation.systemPrompt;
-      }
-
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      // Use Vercel AI SDK's append function to send message with streaming
+      handleSubmit(new Event('submit') as any, {
+        data: {
+          message: content,
+          model: selectedModel,
+          conversationId,
+          systemPrompt: conversation?.systemPrompt,
         },
-        body: JSON.stringify(requestBody),
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let fullContent = "";
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n");
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-              if (data === "[DONE]") {
-                continue;
-              }
-              try {
-                const parsed = JSON.parse(data);
-                if (parsed.content) {
-                  fullContent += parsed.content;
-                  setStreamingContent(fullContent);
-                }
-              } catch (e) {
-                // Skip invalid JSON
-              }
-            }
-          }
-        }
-      }
-
-      // Refresh from database to replace optimistic data
-      await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
-
-      setIsStreaming(false);
-      setStreamingContent("");
     } catch (error) {
       console.error("Error sending message:", error);
-      
-      // Remove optimistic message on error
-      if (activeConversationId && optimisticMessage) {
-        queryClient.setQueryData<Message[]>(
-          ["/api/conversations", activeConversationId, "messages"],
-          (old = []) => old.filter(m => m.id !== optimisticMessage!.id)
-        );
-      }
-      
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
-      setIsStreaming(false);
-      setStreamingContent("");
     }
   };
 
@@ -258,7 +208,7 @@ export default function Chat() {
     
     await deleteMessageMutation.mutateAsync(messageId);
     
-    const messagesToDelete = messages.filter(m => m.id > messageId);
+    const messagesToDelete = dbMessages.filter(m => m.id > messageId);
     for (const msg of messagesToDelete) {
       await deleteMessageMutation.mutateAsync(msg.id);
     }
@@ -269,13 +219,13 @@ export default function Chat() {
   const handleRegenerateMessage = async (messageId: number) => {
     if (!conversationId) return;
     
-    const messageIndex = messages.findIndex(m => m.id === messageId);
+    const messageIndex = dbMessages.findIndex(m => m.id === messageId);
     if (messageIndex === -1 || messageIndex === 0) return;
     
-    const previousMessage = messages[messageIndex - 1];
+    const previousMessage = dbMessages[messageIndex - 1];
     if (previousMessage.role !== "user") return;
     
-    const messagesToDelete = messages.filter(m => m.id >= messageId);
+    const messagesToDelete = dbMessages.filter(m => m.id >= messageId);
     for (const msg of messagesToDelete) {
       await deleteMessageMutation.mutateAsync(msg.id);
     }
@@ -317,15 +267,15 @@ export default function Chat() {
               currentSystemPrompt={conversation?.systemPrompt}
               onSave={handleSaveSystemPrompt}
             />
-            <ExportButton conversation={conversation} messages={messages} />
+            <ExportButton conversation={conversation} messages={dbMessages} />
           </div>
         </div>
 
         {/* Chat Messages - Full Width */}
         <ChatWindow 
-          messages={messages} 
-          isStreaming={isStreaming}
-          streamingContent={streamingContent}
+          messages={dbMessages} 
+          isStreaming={isLoading}
+          streamingContent={isLoading && messages.length > dbMessages.length ? messages[messages.length - 1]?.content || "" : ""}
           onEditMessage={handleEditMessage}
           onRegenerateMessage={handleRegenerateMessage}
           onDeleteMessage={handleDeleteMessage}
@@ -333,7 +283,7 @@ export default function Chat() {
 
         {/* Input Area */}
         <div className="border-t-2 border-border px-6 py-4 flex-shrink-0">
-          <ChatInput onSend={handleSendMessage} disabled={isStreaming} />
+          <ChatInput onSend={handleSendMessage} disabled={isLoading} />
         </div>
       </div>
     </div>

@@ -1,12 +1,18 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { anthropic } from "./anthropic";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { streamText } from "ai";
 import { chatRequestSchema, insertConversationSchema, insertMessageSchema, insertProjectSchema } from "@shared/schema";
 import { storage } from "./storage";
 import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
+
+// Create Anthropic client for Vercel AI SDK
+const anthropic = createAnthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+});
 
 const upload = multer({ 
   dest: "uploads/",
@@ -264,7 +270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Streaming chat endpoint
+  // Streaming chat endpoint using Vercel AI SDK
   app.post("/api/chat", async (req, res) => {
     try {
       // Validate request body
@@ -283,11 +289,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: userMessage,
       });
 
-      // Set headers for SSE streaming
-      res.setHeader("Content-Type", "text/event-stream");
-      res.setHeader("Cache-Control", "no-cache");
-      res.setHeader("Connection", "keep-alive");
-
       // Build conversation history for Claude API (now includes the user message we just saved)
       const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
       
@@ -299,43 +300,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       });
 
-      // Build stream options
-      const streamOptions: any = {
-        model: model,
-        max_tokens: 4096,
+      // Stream response using Vercel AI SDK
+      const result = await streamText({
+        model: anthropic(model),
         messages: messages,
-      };
-
-      // Add system prompt if provided
-      if (systemPrompt) {
-        streamOptions.system = systemPrompt;
-      }
-
-      // Stream response from Claude
-      const stream = await anthropic.messages.stream(streamOptions);
-
-      let fullContent = "";
-
-      // Process streaming response
-      for await (const chunk of stream) {
-        if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
-          fullContent += chunk.delta.text;
-          const data = JSON.stringify({ content: chunk.delta.text });
-          res.write(`data: ${data}\n\n`);
-        }
-      }
-
-      // Save assistant response to database
-      await storage.createMessage({
-        conversationId,
-        role: "assistant",
-        content: fullContent,
-        model,
+        system: systemPrompt || undefined,
+        async onFinish({ text }) {
+          // Save assistant response to database after streaming completes
+          await storage.createMessage({
+            conversationId,
+            role: "assistant",
+            content: text,
+            model,
+          });
+        },
       });
 
-      // Send completion signal
-      res.write(`data: [DONE]\n\n`);
-      res.end();
+      // Convert to data stream response and pipe to client
+      result.pipeTextStreamToResponse(res);
     } catch (error) {
       console.error("Error in chat endpoint:", error);
       
