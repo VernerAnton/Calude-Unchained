@@ -6,7 +6,7 @@ interface UseTypewriterOptions {
   enabled?: boolean;
 }
 
-export function useTypewriter({ text, speed = 20, enabled = true }: UseTypewriterOptions) {
+export function useTypewriter({ text, speed = 60, enabled = true }: UseTypewriterOptions) {
   const [displayedText, setDisplayedText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   

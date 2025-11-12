@@ -12,10 +12,30 @@ interface ChatMessageProps {
   onDelete?: (messageId: number) => void;
 }
 
+// ========== ADD THESE NEW HELPER FUNCTIONS HERE ==========
+const WORD_LIMIT = 50;
+
+const countWords = (text: string): number => {
+  return text.trim().split(/\s+/).length;
+};
+
+const getTruncatedText = (text: string, wordLimit: number): string => {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= wordLimit) return text;
+  return words.slice(0, wordLimit).join(" ") + "...";
+};
+// ========== END OF NEW HELPER FUNCTIONS ==========
+
 export function ChatMessage({ message, onEdit, onRegenerate, onDelete }: ChatMessageProps) {
   const isUser = message.role === "user";
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
+
+  // ========== ADD THESE NEW LINES HERE ==========
+  const [isExpanded, setIsExpanded] = useState(false);
+  const wordCount = countWords(message.content);
+  const shouldCollapse = isUser && wordCount > WORD_LIMIT && !isEditing;
+  // ========== END OF NEW LINES ==========
   
   const getModelLabel = (modelValue?: string | null) => {
     if (!modelValue) return "";
@@ -108,12 +128,27 @@ export function ChatMessage({ message, onEdit, onRegenerate, onDelete }: ChatMes
             </div>
           </div>
         ) : (
-          <div 
-            className="whitespace-pre-wrap break-words leading-relaxed"
-            data-testid={`text-message-content-${message.id}`}
+      <div>
+        <div 
+          className="whitespace-pre-wrap break-words leading-relaxed"
+          data-testid={`text-message-content-${message.id}`}
+        >
+          {shouldCollapse && !isExpanded
+            ? getTruncatedText(message.content, WORD_LIMIT)
+            : message.content
+          }
+        </div>
+
+        {shouldCollapse && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="mt-2 text-sm text-muted-foreground hover:text-foreground transition-colors uppercase tracking-wider font-semibold"
+            data-testid={`button-toggle-message-${message.id}`}
           >
-            {message.content}
-          </div>
+            {isExpanded ? "▲ SHOW LESS" : `▼ SHOW MORE (${wordCount - WORD_LIMIT} more words)`}
+          </button>
+        )}
+      </div>
         )}
       </div>
     </div>
