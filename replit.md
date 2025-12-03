@@ -8,6 +8,12 @@ This full-stack web application provides a custom interface for chatting with Cl
 
 ## Recent Changes
 
+**December 3, 2025 - Threads/Branching Database Schema**
+- **parentMessageId Column:** Added `parent_message_id` column to messages table for conversation branching
+- **Self-Referential FK:** Column references `messages.id` with CASCADE delete for thread cleanup
+- **Schema Update:** Uses Drizzle's `AnyPgColumn` pattern for self-referential foreign keys
+- **Type Safety:** Updated `insertMessageSchema` with optional `parentMessageId` field
+
 **October 21, 2025 - Major UI Redesign**
 - **Branding Update:** Changed title from "CLAUDE CHAT" to "Claude Unchained"
 - **Full-Screen Layout:** Chat window now expands to full available width with collapsible sidebar
@@ -104,8 +110,10 @@ This full-stack web application provides a custom interface for chatting with Cl
 
 ### Shared (`shared/`)
 - `schema.ts` - Drizzle ORM schema definitions:
-  - `conversations` table (id, title, systemPrompt, createdAt, updatedAt)
-  - `messages` table (id, conversationId, role, content, model, createdAt)
+  - `conversations` table (id, title, systemPrompt, projectId, createdAt, updatedAt)
+  - `messages` table (id, conversationId, parentMessageId, role, content, model, createdAt)
+  - `projects` table (id, name, instructions, createdAt, updatedAt)
+  - `projectFiles` table (id, projectId, filename, originalName, mimeType, size, createdAt)
   - Zod insert/select schemas for type safety
   - TypeScript types for frontend/backend consistency
 
