@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, AnyPgColumn } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -22,6 +22,7 @@ export const conversations = pgTable("conversations", {
 export const messages = pgTable("messages", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   conversationId: integer("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  parentMessageId: integer("parent_message_id").references((): AnyPgColumn => messages.id, { onDelete: "cascade" }),
   role: varchar("role", { length: 20 }).notNull(),
   content: text("content").notNull(),
   model: varchar("model", { length: 100 }),
@@ -51,6 +52,7 @@ export const insertConversationSchema = z.object({
 
 export const insertMessageSchema = z.object({
   conversationId: z.number(),
+  parentMessageId: z.number().nullable().optional(),
   role: z.string().min(1),
   content: z.string().min(1),
   model: z.string().optional(),
