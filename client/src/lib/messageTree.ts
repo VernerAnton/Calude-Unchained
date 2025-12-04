@@ -17,10 +17,14 @@ export function normalizeParentId(parentId: number | null | undefined): number {
   return parentId ?? ROOT_PARENT_KEY;
 }
 
-export function buildMessageTree(messages: Message[]): Map<number, Message[]> {
+export function buildMessageTree(messages: Message[], includeThreadMessages: boolean = false): Map<number, Message[]> {
   const tree = new Map<number, Message[]>();
   
   for (const msg of messages) {
+    // Skip thread messages unless explicitly requested
+    if (!includeThreadMessages && msg.isThreadMessage) {
+      continue;
+    }
     const parentId = normalizeParentId(msg.parentMessageId);
     if (!tree.has(parentId)) {
       tree.set(parentId, []);
@@ -35,10 +39,16 @@ export function buildMessageTree(messages: Message[]): Map<number, Message[]> {
   return tree;
 }
 
-export function getSiblings(messages: Message[], message: Message): Message[] {
+export function getSiblings(messages: Message[], message: Message, includeThreadMessages: boolean = false): Message[] {
   const parentId = normalizeParentId(message.parentMessageId);
   return messages
-    .filter(m => normalizeParentId(m.parentMessageId) === parentId)
+    .filter(m => {
+      // Skip thread messages unless explicitly requested
+      if (!includeThreadMessages && m.isThreadMessage) {
+        return false;
+      }
+      return normalizeParentId(m.parentMessageId) === parentId;
+    })
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
 
@@ -80,7 +90,8 @@ export function getThreadMessages(
   rootMessageId: number,
   branchSelections: BranchSelection
 ): Message[] {
-  const tree = buildMessageTree(messages);
+  // Include thread messages when building thread view
+  const tree = buildMessageTree(messages, true);
   const path: Message[] = [];
   
   const rootMessage = messages.find(m => m.id === rootMessageId);
@@ -94,9 +105,13 @@ export function getThreadMessages(
     const children = tree.get(currentParentId);
     if (!children || children.length === 0) break;
     
+    // Only include thread messages that are actually thread messages (for this thread)
+    const threadChildren = children.filter(c => c.isThreadMessage);
+    if (threadChildren.length === 0) break;
+    
     const selectedIndex = branchSelections[currentParentId] ?? 0;
-    const clampedIndex = Math.min(Math.max(0, selectedIndex), children.length - 1);
-    const selectedChild = children[clampedIndex];
+    const clampedIndex = Math.min(Math.max(0, selectedIndex), threadChildren.length - 1);
+    const selectedChild = threadChildren[clampedIndex];
     
     path.push(selectedChild);
     currentParentId = selectedChild.id;
