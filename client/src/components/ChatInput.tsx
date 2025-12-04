@@ -4,9 +4,10 @@ interface ChatInputProps {
   onSend: (message: string) => void;
   disabled: boolean;
   placeholder?: string;
+  testIdPrefix?: string;
 }
 
-export function ChatInput({ onSend, disabled, placeholder = "Type your message here..." }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, placeholder = "Type your message here...", testIdPrefix = "" }: ChatInputProps) {
   const [message, setMessage] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -50,14 +51,14 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
           minHeight: "60px",
           maxHeight: "120px"
         }}
-        data-testid="input-message"
+        data-testid={`${testIdPrefix}input-message`}
       />
       <button
         type="submit"
         disabled={disabled || !message.trim()}
         className="border-2 border-border bg-card text-card-foreground px-6 font-bold uppercase tracking-wider transition-all hover-elevate active-elevate-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed self-end"
         style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}
-        data-testid="button-send"
+        data-testid={`${testIdPrefix}button-send`}
       >
         <span className="hidden sm:inline">▌ SEND</span>
         <span className="sm:hidden">▌</span>

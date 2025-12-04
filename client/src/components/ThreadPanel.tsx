@@ -197,6 +197,7 @@ export function ThreadPanel({
           onSend={handleSendMessage} 
           disabled={isStreaming}
           placeholder="Reply in thread..."
+          testIdPrefix="thread-"
         />
       </div>
     </div>

@@ -29,45 +29,37 @@ export function ThreadsDropdown({
     const threadInfos: ThreadInfo[] = [];
     
     const threadMessages = messages.filter(m => m.isThreadMessage);
+    if (threadMessages.length === 0) return [];
     
-    const rootMessageIds = new Set<number>();
-    for (const threadMsg of threadMessages) {
-      if (threadMsg.parentMessageId) {
-        const parentMsg = messages.find(m => m.id === threadMsg.parentMessageId);
-        if (parentMsg && !parentMsg.isThreadMessage) {
-          rootMessageIds.add(parentMsg.id);
-        } else if (parentMsg && parentMsg.isThreadMessage) {
-          let currentParent = parentMsg;
-          while (currentParent && currentParent.isThreadMessage && currentParent.parentMessageId) {
-            const nextParent = messages.find(m => m.id === currentParent!.parentMessageId);
-            if (nextParent) {
-              currentParent = nextParent;
-            } else {
-              break;
-            }
-          }
-          if (currentParent && !currentParent.isThreadMessage) {
-            rootMessageIds.add(currentParent.id);
-          }
+    const messageMap = new Map(messages.map(m => [m.id, m]));
+    
+    const rootIds = new Set<number>();
+    for (const tm of threadMessages) {
+      if (tm.parentMessageId) {
+        const directParent = messageMap.get(tm.parentMessageId);
+        if (directParent && !directParent.isThreadMessage) {
+          rootIds.add(directParent.id);
         }
       }
     }
     
-    for (const rootId of Array.from(rootMessageIds)) {
-      const rootMessage = messages.find(m => m.id === rootId);
+    for (const rootId of Array.from(rootIds)) {
+      const rootMessage = messageMap.get(rootId);
       if (rootMessage) {
-        const threadCount = threadMessages.filter(m => {
-          let current: Message | undefined = m;
-          while (current && current.parentMessageId) {
-            if (current.parentMessageId === rootId) return true;
-            current = messages.find(msg => msg.id === current!.parentMessageId);
-          }
-          return false;
-        }).length;
+        const count = threadMessages.filter(m => m.parentMessageId === rootId || 
+          (m.parentMessageId && (() => {
+            let current = messageMap.get(m.parentMessageId);
+            while (current && current.isThreadMessage && current.parentMessageId) {
+              if (current.parentMessageId === rootId) return true;
+              current = messageMap.get(current.parentMessageId);
+            }
+            return current?.id === rootId;
+          })())
+        ).length;
         
         threadInfos.push({
           rootMessage,
-          threadCount,
+          threadCount: count,
         });
       }
     }
