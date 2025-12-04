@@ -8,6 +8,7 @@ import { SystemPromptDialog } from "@/components/SystemPromptDialog";
 import { ExportButton } from "@/components/ExportButton";
 import { EditableChatTitle } from "@/components/EditableChatTitle";
 import { ThreadPanel } from "@/components/ThreadPanel";
+import { ThreadsDropdown } from "@/components/ThreadsDropdown";
 import { type Message, type ModelValue, type Conversation } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -337,6 +338,11 @@ export default function Chat() {
           </div>
           <div className="flex items-center gap-3">
             <ModelSelector value={selectedModel} onChange={setSelectedModel} />
+            <ThreadsDropdown
+              messages={messages}
+              onOpenThread={handleOpenThread}
+              conversationId={conversationId}
+            />
             <SystemPromptDialog
               conversationId={conversationId}
               currentSystemPrompt={conversation?.systemPrompt}
