@@ -285,11 +285,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Save user message to database first with parentMessageId
+      // Mark as thread message if in thread context
       const savedUserMessage = await storage.createMessage({
         conversationId,
         parentMessageId: parentMessageId ?? null,
         role: "user",
         content: userMessage,
+        isThreadMessage: threadContext ?? false,
       });
 
       // Set headers for SSE streaming
@@ -367,12 +369,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Save assistant response to database with parentMessageId set to the user message
+      // Mark as thread message if in thread context
       await storage.createMessage({
         conversationId,
         parentMessageId: savedUserMessage.id,
         role: "assistant",
         content: fullContent,
         model,
+        isThreadMessage: threadContext ?? false,
       });
 
       // Send completion signal
