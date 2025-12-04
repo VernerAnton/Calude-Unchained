@@ -80,6 +80,9 @@ export const chatRequestSchema = z.object({
   model: z.enum(["claude-opus-4-20250514", "claude-sonnet-4-5", "claude-haiku-4-5"]),
   conversationId: z.number().optional(),
   systemPrompt: z.string().optional(),
+  parentMessageId: z.number().nullable().optional(),
+  threadContext: z.boolean().optional(),
+  threadRootId: z.number().optional(),
 });
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>;

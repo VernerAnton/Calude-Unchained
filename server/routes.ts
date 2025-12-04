@@ -269,16 +269,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Validate request body
       const validatedData = chatRequestSchema.parse(req.body);
-      const { message: userMessage, model, conversationId, systemPrompt } = validatedData;
+      const { 
+        message: userMessage, 
+        model, 
+        conversationId, 
+        systemPrompt,
+        parentMessageId,
+        threadContext,
+        threadRootId
+      } = validatedData;
 
       if (!conversationId) {
         res.status(400).json({ error: "conversationId is required" });
         return;
       }
 
-      // Save user message to database first
-      await storage.createMessage({
+      // Save user message to database first with parentMessageId
+      const savedUserMessage = await storage.createMessage({
         conversationId,
+        parentMessageId: parentMessageId ?? null,
         role: "user",
         content: userMessage,
       });
@@ -288,16 +297,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      // Build conversation history for Claude API (now includes the user message we just saved)
+      // Build conversation history for Claude API
       const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
       
-      const dbMessages = await storage.getMessages(conversationId);
-      dbMessages.forEach((msg) => {
+      if (threadContext && threadRootId) {
+        // Thread mode: only include root message + thread messages
+        const allDbMessages = await storage.getMessages(conversationId);
+        const rootMsg = allDbMessages.find(m => m.id === threadRootId);
+        
+        if (rootMsg) {
+          // Add root message as context
+          messages.push({
+            role: rootMsg.role as "user" | "assistant",
+            content: rootMsg.content,
+          });
+          
+          // Add all thread messages (those with parentMessageId in the thread chain)
+          const threadMsgs = getThreadChain(allDbMessages, threadRootId);
+          threadMsgs.forEach((msg) => {
+            messages.push({
+              role: msg.role as "user" | "assistant",
+              content: msg.content,
+            });
+          });
+        }
+        
+        // Add current message
         messages.push({
-          role: msg.role as "user" | "assistant",
-          content: msg.content,
+          role: "user",
+          content: userMessage,
         });
-      });
+      } else {
+        // Main chat mode: build conversation path up to this message
+        const allDbMessages = await storage.getMessages(conversationId);
+        const conversationPath = buildConversationPath(allDbMessages, savedUserMessage.id);
+        
+        conversationPath.forEach((msg) => {
+          messages.push({
+            role: msg.role as "user" | "assistant",
+            content: msg.content,
+          });
+        });
+      }
 
       // Build stream options
       const streamOptions: any = {
@@ -325,9 +366,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Save assistant response to database
+      // Save assistant response to database with parentMessageId set to the user message
       await storage.createMessage({
         conversationId,
+        parentMessageId: savedUserMessage.id,
         role: "assistant",
         content: fullContent,
         model,
@@ -348,6 +390,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
+
+  // Helper function to get thread chain messages
+  function getThreadChain(messages: any[], rootId: number): any[] {
+    const result: any[] = [];
+    const childMap = new Map<number, any[]>();
+    
+    for (const msg of messages) {
+      const parentId = msg.parentMessageId;
+      if (parentId !== null && parentId !== undefined) {
+        if (!childMap.has(parentId)) {
+          childMap.set(parentId, []);
+        }
+        childMap.get(parentId)!.push(msg);
+      }
+    }
+    
+    // Traverse from root, taking first child at each level
+    let currentId = rootId;
+    while (childMap.has(currentId)) {
+      const children = childMap.get(currentId)!;
+      children.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      const firstChild = children[0];
+      result.push(firstChild);
+      currentId = firstChild.id;
+    }
+    
+    return result;
+  }
+
+  // Helper function to build conversation path up to a specific message
+  function buildConversationPath(messages: any[], targetMessageId: number): any[] {
+    const messageMap = new Map<number, any>();
+    for (const msg of messages) {
+      messageMap.set(msg.id, msg);
+    }
+    
+    // Walk backwards from target to root
+    const path: any[] = [];
+    let currentMsg = messageMap.get(targetMessageId);
+    
+    while (currentMsg) {
+      path.unshift(currentMsg);
+      if (currentMsg.parentMessageId === null || currentMsg.parentMessageId === undefined) {
+        break;
+      }
+      currentMsg = messageMap.get(currentMsg.parentMessageId);
+    }
+    
+    return path;
+  }
 
   const httpServer = createServer(app);
 

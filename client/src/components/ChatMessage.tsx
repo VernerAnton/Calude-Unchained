@@ -1,15 +1,20 @@
 import { useState } from "react";
 import { type Message, modelOptions } from "@shared/schema";
 import { MessageActions } from "./MessageActions";
+import { BranchNavigator } from "./BranchNavigator";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Check, X } from "lucide-react";
+import { Check, X, MessageSquarePlus } from "lucide-react";
 
 interface ChatMessageProps {
   message: Message;
+  siblings?: Message[];
+  siblingIndex?: number;
   onEdit?: (messageId: number, newContent: string) => void;
   onRegenerate?: (messageId: number) => void;
   onDelete?: (messageId: number) => void;
+  onBranchNavigate?: (parentId: number | null, direction: "prev" | "next") => void;
+  onOpenThread?: (messageId: number) => void;
 }
 
 // ========== ADD THESE NEW HELPER FUNCTIONS HERE ==========
@@ -26,16 +31,37 @@ const getTruncatedText = (text: string, wordLimit: number): string => {
 };
 // ========== END OF NEW HELPER FUNCTIONS ==========
 
-export function ChatMessage({ message, onEdit, onRegenerate, onDelete }: ChatMessageProps) {
+export function ChatMessage({ 
+  message, 
+  siblings = [],
+  siblingIndex = 0,
+  onEdit, 
+  onRegenerate, 
+  onDelete,
+  onBranchNavigate,
+  onOpenThread
+}: ChatMessageProps) {
   const isUser = message.role === "user";
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
 
-  // ========== ADD THESE NEW LINES HERE ==========
   const [isExpanded, setIsExpanded] = useState(false);
   const wordCount = countWords(message.content);
   const shouldCollapse = isUser && wordCount > WORD_LIMIT && !isEditing;
-  // ========== END OF NEW LINES ==========
+  
+  const hasBranches = siblings.length > 1;
+  
+  const handleBranchNavigate = (direction: "prev" | "next") => {
+    if (onBranchNavigate) {
+      onBranchNavigate(message.parentMessageId, direction);
+    }
+  };
+  
+  const handleOpenThread = () => {
+    if (onOpenThread) {
+      onOpenThread(message.id);
+    }
+  };
   
   const getModelLabel = (modelValue?: string | null) => {
     if (!modelValue) return "";
@@ -86,16 +112,37 @@ export function ChatMessage({ message, onEdit, onRegenerate, onDelete }: ChatMes
                 • {getModelLabel(message.model)}
               </span>
             )}
+            {hasBranches && (
+              <BranchNavigator
+                currentIndex={siblingIndex}
+                totalCount={siblings.length}
+                onNavigate={handleBranchNavigate}
+              />
+            )}
           </div>
-          {(onEdit || onRegenerate || onDelete) && !isEditing && (
-            <MessageActions
-              messageId={message.id}
-              isUser={isUser}
-              onEdit={handleEdit}
-              onRegenerate={handleRegenerate}
-              onDelete={handleDelete}
-            />
-          )}
+          <div className="flex items-center gap-1">
+            {!isUser && onOpenThread && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={handleOpenThread}
+                title="Start thread"
+                data-testid={`button-thread-${message.id}`}
+              >
+                <MessageSquarePlus className="h-4 w-4" />
+              </Button>
+            )}
+            {(onEdit || onRegenerate || onDelete) && !isEditing && (
+              <MessageActions
+                messageId={message.id}
+                isUser={isUser}
+                onEdit={handleEdit}
+                onRegenerate={handleRegenerate}
+                onDelete={handleDelete}
+              />
+            )}
+          </div>
         </div>
         
         {isEditing ? (

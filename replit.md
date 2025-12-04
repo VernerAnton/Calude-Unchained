@@ -8,6 +8,16 @@ This full-stack web application provides a custom interface for chatting with Cl
 
 ## Recent Changes
 
+**December 4, 2025 - Complete Threads & Branching Implementation**
+- **Message Tree Utilities:** New `client/src/lib/messageTree.ts` with functions for branch selection and tree traversal
+- **Branch Navigation UI:** `BranchNavigator` component shows "< 1/2 >" style navigation for message siblings
+- **Non-Destructive Editing:** Editing a message creates a NEW sibling branch instead of modifying/deleting history
+- **Thread Panel:** Isolated side panel for threaded conversations from any assistant message
+- **Thread Context Isolation:** Thread API calls only send root message + thread replies to Claude
+- **Active Path Rendering:** Messages rendered based on user's branch selections with proper parent key normalization
+- **Backend Thread Support:** Chat endpoint handles `threadContext`, `threadRootId`, `parentMessageId`
+- **Complete E2E Testing:** Branch navigation and thread functionality verified with Playwright
+
 **December 3, 2025 - Threads/Branching Database Schema**
 - **parentMessageId Column:** Added `parent_message_id` column to messages table for conversation branching
 - **Self-Referential FK:** Column references `messages.id` with CASCADE delete for thread cleanup
@@ -49,6 +59,13 @@ This full-stack web application provides a custom interface for chatting with Cl
 - **Export conversations** - download as Markdown or plain text files
 - **Model labels** - each assistant message displays which Claude model was used
 
+### Threads & Branching
+- **Non-destructive editing:** Editing a message creates a new sibling branch, preserving history
+- **Branch navigation:** Arrow controls (< 1/2 >) to switch between message versions
+- **Thread conversations:** Open isolated side threads from any assistant message
+- **Thread context isolation:** Threads only include root message + thread replies when talking to Claude
+- **Active path rendering:** Messages displayed based on user's branch selections
+
 ### Design & UX
 - **Professional modern design** with Courier New monospace font throughout
 - **Sharp corners** on all UI elements (0px border-radius)
@@ -76,12 +93,16 @@ This full-stack web application provides a custom interface for chatting with Cl
   - `ModelSelector.tsx` - Dropdown for Claude model selection
   - `SystemPromptDialog.tsx` - Dialog for setting custom system prompts
   - `ExportButton.tsx` - Dropdown menu for exporting conversations
-  - `ChatWindow.tsx` - Scrollable message history container
-  - `ChatMessage.tsx` - Individual message bubble component with model labels
+  - `ChatWindow.tsx` - Scrollable message history container with active path rendering
+  - `ChatMessage.tsx` - Individual message bubble with model labels, edit, and thread button
   - `MessageActions.tsx` - Edit, regenerate, and delete action buttons
   - `ChatInput.tsx` - Auto-resizing textarea with send button
+  - `BranchNavigator.tsx` - "< 1/2 >" style navigation for message siblings
+  - `ThreadPanel.tsx` - Resizable side panel for isolated thread conversations
+- **Utilities:**
+  - `lib/messageTree.ts` - Functions for building message trees, computing active paths, getting siblings
 - **Pages:**
-  - `Chat.tsx` - Main chat interface with conversation loading and state management
+  - `Chat.tsx` - Main chat interface with branching state and thread panel integration
 - **Styling:**
   - `index.css` - Typewriter color tokens and elevation utilities
   - `tailwind.config.ts` - Design system configuration

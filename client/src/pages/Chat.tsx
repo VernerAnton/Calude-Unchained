@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ModelSelector } from "@/components/ModelSelector";
@@ -7,9 +7,12 @@ import { ChatInput } from "@/components/ChatInput";
 import { SystemPromptDialog } from "@/components/SystemPromptDialog";
 import { ExportButton } from "@/components/ExportButton";
 import { EditableChatTitle } from "@/components/EditableChatTitle";
+import { ThreadPanel } from "@/components/ThreadPanel";
 import { type Message, type ModelValue, type Conversation } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getActivePath, getSiblings, getThreadMessages, normalizeParentId, type BranchSelection } from "@/lib/messageTree";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 export default function Chat() {
   const [, params] = useRoute("/chat/:id");
@@ -19,6 +22,8 @@ export default function Chat() {
   const [selectedModel, setSelectedModel] = useState<ModelValue>("claude-sonnet-4-5");
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [branchSelections, setBranchSelections] = useState<BranchSelection>({});
+  const [threadRootId, setThreadRootId] = useState<number | null>(null);
   const { toast } = useToast();
 
   const { data: conversation } = useQuery<Conversation>({
@@ -43,6 +48,21 @@ export default function Chat() {
     enabled: !!conversationId,
   });
 
+  const activePath = useMemo(() => {
+    return getActivePath(messages, branchSelections);
+  }, [messages, branchSelections]);
+
+  const threadMessages = useMemo(() => {
+    if (!threadRootId) return [];
+    const allThreadMsgs = getThreadMessages(messages, threadRootId, branchSelections);
+    return allThreadMsgs.slice(1);
+  }, [messages, threadRootId, branchSelections]);
+
+  const threadRootMessage = useMemo(() => {
+    if (!threadRootId) return null;
+    return messages.find(m => m.id === threadRootId) || null;
+  }, [messages, threadRootId]);
+
   const createConversationMutation = useMutation({
     mutationFn: async (firstMessage: string) => {
       const conv = await apiRequest("/api/conversations", {
@@ -57,8 +77,7 @@ export default function Chat() {
     },
   });
 
-
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, parentMessageId?: number | null) => {
     let activeConversationId = conversationId;
 
     try {
@@ -70,10 +89,14 @@ export default function Chat() {
       setIsStreaming(true);
       setStreamingContent("");
 
-      const requestBody: any = {
+      const lastMessage = activePath.length > 0 ? activePath[activePath.length - 1] : null;
+      const effectiveParentId = parentMessageId !== undefined ? parentMessageId : (lastMessage?.id ?? null);
+
+      const requestBody: Record<string, unknown> = {
         message: content,
         model: selectedModel,
         conversationId: activeConversationId,
+        parentMessageId: effectiveParentId,
       };
       
       if (conversation?.systemPrompt) {
@@ -124,7 +147,6 @@ export default function Chat() {
         }
       }
 
-      // Refresh from database
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
 
@@ -221,41 +243,79 @@ export default function Chat() {
   const handleEditMessage = async (messageId: number, newContent: string) => {
     if (!conversationId) return;
     
-    await deleteMessageMutation.mutateAsync(messageId);
+    const editedMessage = messages.find(m => m.id === messageId);
+    if (!editedMessage) return;
     
-    const messagesToDelete = messages.filter(m => m.id > messageId);
-    for (const msg of messagesToDelete) {
-      await deleteMessageMutation.mutateAsync(msg.id);
-    }
+    const parentId = editedMessage.parentMessageId;
     
-    await handleSendMessage(newContent);
+    await handleSendMessage(newContent, parentId);
+    
+    const normalizedKey = normalizeParentId(parentId);
+    const siblings = getSiblings(messages, editedMessage);
+    const newIndex = siblings.length;
+    setBranchSelections(prev => ({
+      ...prev,
+      [normalizedKey]: newIndex,
+    }));
   };
 
   const handleRegenerateMessage = async (messageId: number) => {
     if (!conversationId) return;
     
-    const messageIndex = messages.findIndex(m => m.id === messageId);
-    if (messageIndex === -1 || messageIndex === 0) return;
+    const targetMessage = messages.find(m => m.id === messageId);
+    if (!targetMessage || targetMessage.role !== "assistant") return;
     
-    const previousMessage = messages[messageIndex - 1];
-    if (previousMessage.role !== "user") return;
+    const parentUserMessage = messages.find(m => m.id === targetMessage.parentMessageId);
+    if (!parentUserMessage || parentUserMessage.role !== "user") return;
     
-    const messagesToDelete = messages.filter(m => m.id >= messageId);
-    for (const msg of messagesToDelete) {
-      await deleteMessageMutation.mutateAsync(msg.id);
-    }
+    const grandParentId = parentUserMessage.parentMessageId;
     
-    await handleSendMessage(previousMessage.content);
+    await handleSendMessage(parentUserMessage.content, grandParentId);
+    
+    const normalizedKey = normalizeParentId(grandParentId);
+    const userMsgSiblings = getSiblings(messages, parentUserMessage);
+    const newIndex = userMsgSiblings.length;
+    setBranchSelections(prev => ({
+      ...prev,
+      [normalizedKey]: newIndex,
+    }));
   };
 
   const handleDeleteMessage = (messageId: number) => {
     deleteMessageMutation.mutate(messageId);
   };
 
-  return (
+  const handleBranchNavigate = (parentId: number | null, direction: "prev" | "next") => {
+    const normalizedKey = normalizeParentId(parentId);
+    const currentIndex = branchSelections[normalizedKey] ?? 0;
+    
+    const dummyMsg = { parentMessageId: parentId } as Message;
+    const siblings = getSiblings(messages, dummyMsg);
+    
+    let newIndex = currentIndex;
+    if (direction === "prev" && currentIndex > 0) {
+      newIndex = currentIndex - 1;
+    } else if (direction === "next" && currentIndex < siblings.length - 1) {
+      newIndex = currentIndex + 1;
+    }
+    
+    setBranchSelections(prev => ({
+      ...prev,
+      [normalizedKey]: newIndex,
+    }));
+  };
+
+  const handleOpenThread = (messageId: number) => {
+    setThreadRootId(messageId);
+  };
+
+  const handleCloseThread = () => {
+    setThreadRootId(null);
+  };
+
+  const mainContent = (
     <div className="h-full w-full flex flex-col">
       <div className="w-full flex flex-col h-full">
-        {/* Header */}
         <div className="border-b-2 border-border px-6 py-3 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-4">
             {conversation?.title ? (
@@ -282,25 +342,51 @@ export default function Chat() {
               currentSystemPrompt={conversation?.systemPrompt}
               onSave={handleSaveSystemPrompt}
             />
-            <ExportButton conversation={conversation} messages={messages} />
+            <ExportButton conversation={conversation} messages={activePath} />
           </div>
         </div>
 
-        {/* Chat Messages - Full Width */}
         <ChatWindow 
-          messages={messages} 
+          messages={messages}
+          activePath={activePath}
+          allMessages={messages}
+          branchSelections={branchSelections}
           isStreaming={isStreaming}
           streamingContent={streamingContent}
           onEditMessage={handleEditMessage}
           onRegenerateMessage={handleRegenerateMessage}
           onDeleteMessage={handleDeleteMessage}
+          onBranchNavigate={handleBranchNavigate}
+          onOpenThread={handleOpenThread}
         />
 
-        {/* Input Area */}
         <div className="border-t-2 border-border px-6 py-4 flex-shrink-0">
-          <ChatInput onSend={handleSendMessage} disabled={isStreaming} />
+          <ChatInput onSend={(content) => handleSendMessage(content)} disabled={isStreaming} />
         </div>
       </div>
     </div>
   );
+
+  if (threadRootId && threadRootMessage && conversationId) {
+    return (
+      <ResizablePanelGroup direction="horizontal" className="h-full">
+        <ResizablePanel defaultSize={60} minSize={30}>
+          {mainContent}
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize={40} minSize={25}>
+          <ThreadPanel
+            rootMessage={threadRootMessage}
+            threadMessages={threadMessages}
+            conversationId={conversationId}
+            selectedModel={selectedModel}
+            systemPrompt={conversation?.systemPrompt}
+            onClose={handleCloseThread}
+          />
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    );
+  }
+
+  return mainContent;
 }
