@@ -1,12 +1,43 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { anthropic } from "./anthropic";
-import { chatRequestSchema, insertConversationSchema, insertMessageSchema, insertProjectSchema } from "@shared/schema";
+import { chatRequestSchema, insertConversationSchema, insertMessageSchema, insertProjectSchema, type FileAttachment } from "@shared/schema";
 import { storage } from "./storage";
 import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
+import type Anthropic from "@anthropic-ai/sdk";
+
+const IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+const PDF_MIME_TYPE = "application/pdf";
+
+function isImageFile(mimeType: string): boolean {
+  return IMAGE_MIME_TYPES.includes(mimeType);
+}
+
+function isPdfFile(mimeType: string): boolean {
+  return mimeType === PDF_MIME_TYPE;
+}
+
+function isTextFile(mimeType: string): boolean {
+  const textMimeTypes = [
+    "text/plain",
+    "text/html",
+    "text/css",
+    "text/javascript",
+    "text/markdown",
+    "text/csv",
+    "text/xml",
+    "application/json",
+    "application/xml",
+    "application/javascript",
+    "application/typescript",
+    "application/x-yaml",
+    "application/x-sh",
+  ];
+  return textMimeTypes.includes(mimeType) || mimeType.startsWith("text/");
+}
 
 const upload = multer({ 
   dest: "uploads/",
@@ -264,6 +295,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get message files for a conversation
+  app.get("/api/conversations/:id/files", async (req, res) => {
+    try {
+      const conversationId = parseInt(req.params.id);
+      const messages = await storage.getMessages(conversationId);
+      const messageIds = messages.map(m => m.id);
+      const files = await storage.getMessageFilesForMessages(messageIds);
+      res.json(files);
+    } catch (error) {
+      console.error("Error fetching message files:", error);
+      res.status(500).json({ error: "Failed to fetch message files" });
+    }
+  });
+
   // Streaming chat endpoint
   app.post("/api/chat", async (req, res) => {
     try {
@@ -276,7 +321,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         systemPrompt,
         parentMessageId,
         threadContext,
-        threadRootId
+        threadRootId,
+        files
       } = validatedData;
 
       if (!conversationId) {
@@ -294,13 +340,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isThreadMessage: threadContext ?? false,
       });
 
+      // Save file attachments if present
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const isImage = isImageFile(file.mimeType);
+          const isPdf = isPdfFile(file.mimeType);
+          const isText = isTextFile(file.mimeType);
+          
+          await storage.createMessageFile({
+            messageId: savedUserMessage.id,
+            filename: file.filename,
+            originalName: file.originalName,
+            mimeType: file.mimeType,
+            size: file.size,
+            fileData: (isImage || isPdf) ? file.data : undefined,
+            textContent: isText ? Buffer.from(file.data, 'base64').toString('utf-8') : undefined,
+          });
+        }
+      }
+
       // Set headers for SSE streaming
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
       // Build conversation history for Claude API
-      const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
+      type ContentBlock = Anthropic.TextBlockParam | Anthropic.ImageBlockParam | Anthropic.DocumentBlockParam;
+      type MessageContent = string | ContentBlock[];
+      const claudeMessages: Array<{ role: "user" | "assistant"; content: MessageContent }> = [];
       
       if (threadContext && threadRootId) {
         // Thread mode: only include root message + thread messages
@@ -309,7 +376,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (rootMsg) {
           // Add root message as context
-          messages.push({
+          claudeMessages.push({
             role: rootMsg.role as "user" | "assistant",
             content: rootMsg.content,
           });
@@ -317,36 +384,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Add all thread messages (those with parentMessageId in the thread chain)
           const threadMsgs = getThreadChain(allDbMessages, threadRootId);
           threadMsgs.forEach((msg) => {
-            messages.push({
+            claudeMessages.push({
               role: msg.role as "user" | "assistant",
               content: msg.content,
             });
           });
         }
         
-        // Add current message
-        messages.push({
+        // Add current message with files if present
+        claudeMessages.push({
           role: "user",
-          content: userMessage,
+          content: buildUserContent(userMessage, files),
         });
       } else {
         // Main chat mode: build conversation path up to this message
         const allDbMessages = await storage.getMessages(conversationId);
         const conversationPath = buildConversationPath(allDbMessages, savedUserMessage.id);
         
-        conversationPath.forEach((msg) => {
-          messages.push({
-            role: msg.role as "user" | "assistant",
-            content: msg.content,
-          });
-        });
+        // Get all file attachments for messages in this path
+        const pathMessageIds = conversationPath.map(m => m.id);
+        const allMessageFiles = await storage.getMessageFilesForMessages(pathMessageIds);
+        const filesByMessageId = new Map<number, typeof allMessageFiles>();
+        for (const file of allMessageFiles) {
+          if (!filesByMessageId.has(file.messageId)) {
+            filesByMessageId.set(file.messageId, []);
+          }
+          filesByMessageId.get(file.messageId)!.push(file);
+        }
+        
+        for (const msg of conversationPath) {
+          const msgFiles = filesByMessageId.get(msg.id);
+          if (msg.id === savedUserMessage.id) {
+            // Current message - use the files from the request
+            claudeMessages.push({
+              role: "user",
+              content: buildUserContent(userMessage, files),
+            });
+          } else if (msg.role === "user" && msgFiles && msgFiles.length > 0) {
+            // Historical user message with files
+            const reconstructedFiles: FileAttachment[] = msgFiles.map(f => ({
+              filename: f.filename,
+              originalName: f.originalName,
+              mimeType: f.mimeType,
+              size: f.size,
+              data: f.fileData || (f.textContent ? Buffer.from(f.textContent).toString('base64') : ''),
+            }));
+            claudeMessages.push({
+              role: "user",
+              content: buildUserContent(msg.content, reconstructedFiles),
+            });
+          } else {
+            claudeMessages.push({
+              role: msg.role as "user" | "assistant",
+              content: msg.content,
+            });
+          }
+        }
       }
 
       // Build stream options
       const streamOptions: any = {
         model: model,
         max_tokens: 4096,
-        messages: messages,
+        messages: claudeMessages,
       };
 
       // Add system prompt if provided
@@ -394,6 +494,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
+
+  // Helper function to build user content with files for Claude API
+  function buildUserContent(
+    text: string,
+    files?: FileAttachment[]
+  ): string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam | Anthropic.DocumentBlockParam> {
+    if (!files || files.length === 0) {
+      return text;
+    }
+
+    const contentBlocks: Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam | Anthropic.DocumentBlockParam> = [];
+
+    // Add files first
+    for (const file of files) {
+      if (isImageFile(file.mimeType)) {
+        contentBlocks.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: file.mimeType as "image/png" | "image/jpeg" | "image/gif" | "image/webp",
+            data: file.data,
+          },
+        });
+      } else if (isPdfFile(file.mimeType)) {
+        contentBlocks.push({
+          type: "document",
+          source: {
+            type: "base64",
+            media_type: "application/pdf",
+            data: file.data,
+          },
+        });
+      } else if (isTextFile(file.mimeType)) {
+        // For text files, decode and include as text
+        const textContent = Buffer.from(file.data, 'base64').toString('utf-8');
+        contentBlocks.push({
+          type: "text",
+          text: `[File: ${file.originalName}]\n\`\`\`\n${textContent}\n\`\`\``,
+        });
+      }
+    }
+
+    // Add user text message
+    contentBlocks.push({
+      type: "text",
+      text: text,
+    });
+
+    return contentBlocks;
+  }
 
   // Helper function to get thread chain messages
   function getThreadChain(messages: any[], rootId: number): any[] {

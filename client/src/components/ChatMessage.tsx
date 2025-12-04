@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { type Message, modelOptions } from "@shared/schema";
+import { type Message, type MessageFile, modelOptions } from "@shared/schema";
 import { MessageActions } from "./MessageActions";
 import { BranchNavigator } from "./BranchNavigator";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Check, X, MessageSquarePlus } from "lucide-react";
+import { Check, X, MessageSquarePlus, File, FileText, FileCode, Image as ImageIcon } from "lucide-react";
 
 interface ChatMessageProps {
   message: Message;
+  files?: MessageFile[];
   siblings?: Message[];
   siblingIndex?: number;
   onEdit?: (messageId: number, newContent: string) => void;
@@ -15,6 +16,23 @@ interface ChatMessageProps {
   onDelete?: (messageId: number) => void;
   onBranchNavigate?: (parentId: number | null, direction: "prev" | "next") => void;
   onOpenThread?: (messageId: number) => void;
+}
+
+function getFileIcon(mimeType: string) {
+  if (mimeType.startsWith("image/")) {
+    return <ImageIcon className="w-4 h-4" />;
+  } else if (mimeType === "application/pdf") {
+    return <File className="w-4 h-4" />;
+  } else if (mimeType.includes("javascript") || mimeType.includes("typescript") || mimeType.includes("json") || mimeType.includes("xml")) {
+    return <FileCode className="w-4 h-4" />;
+  }
+  return <FileText className="w-4 h-4" />;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
 // ========== ADD THESE NEW HELPER FUNCTIONS HERE ==========
@@ -32,7 +50,8 @@ const getTruncatedText = (text: string, wordLimit: number): string => {
 // ========== END OF NEW HELPER FUNCTIONS ==========
 
 export function ChatMessage({ 
-  message, 
+  message,
+  files = [],
   siblings = [],
   siblingIndex = 0,
   onEdit, 
@@ -176,6 +195,46 @@ export function ChatMessage({
           </div>
         ) : (
       <div>
+        {files.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2" data-testid={`files-${message.id}`}>
+            {files.map((file) => {
+              const isImage = file.mimeType.startsWith("image/");
+              
+              if (isImage && file.fileData) {
+                return (
+                  <div
+                    key={file.id}
+                    className="border-2 border-border overflow-hidden"
+                    style={{ boxShadow: "2px 2px 0px hsl(var(--border))" }}
+                    data-testid={`file-image-${file.id}`}
+                  >
+                    <img
+                      src={`data:${file.mimeType};base64,${file.fileData}`}
+                      alt={file.originalName}
+                      className="max-w-[200px] max-h-[200px] object-contain"
+                    />
+                  </div>
+                );
+              }
+              
+              return (
+                <div
+                  key={file.id}
+                  className="flex items-center gap-2 border-2 border-border px-3 py-2 font-mono text-xs"
+                  style={{ boxShadow: "2px 2px 0px hsl(var(--border))" }}
+                  data-testid={`file-attachment-${file.id}`}
+                >
+                  {getFileIcon(file.mimeType)}
+                  <div className="max-w-[150px]">
+                    <div className="truncate font-semibold">{file.originalName}</div>
+                    <div className="text-muted-foreground">{formatFileSize(file.size)}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        
         <div 
           className="whitespace-pre-wrap break-words leading-relaxed"
           data-testid={`text-message-content-${message.id}`}

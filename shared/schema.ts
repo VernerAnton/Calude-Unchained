@@ -40,6 +40,18 @@ export const projectFiles = pgTable("project_files", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const messageFiles = pgTable("message_files", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  messageId: integer("message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
+  filename: varchar("filename", { length: 255 }).notNull(),
+  originalName: varchar("original_name", { length: 255 }).notNull(),
+  mimeType: varchar("mime_type", { length: 100 }).notNull(),
+  size: integer("size").notNull(),
+  fileData: text("file_data"),
+  textContent: text("text_content"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertProjectSchema = z.object({
   name: z.string().min(1, "Project name is required"),
   instructions: z.string().optional(),
@@ -68,6 +80,16 @@ export const insertProjectFileSchema = z.object({
   size: z.number(),
 });
 
+export const insertMessageFileSchema = z.object({
+  messageId: z.number(),
+  filename: z.string().min(1),
+  originalName: z.string().min(1),
+  mimeType: z.string().min(1),
+  size: z.number(),
+  fileData: z.string().optional(),
+  textContent: z.string().optional(),
+});
+
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Project = typeof projects.$inferSelect;
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
@@ -76,6 +98,18 @@ export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
 export type InsertProjectFile = z.infer<typeof insertProjectFileSchema>;
 export type ProjectFile = typeof projectFiles.$inferSelect;
+export type InsertMessageFile = z.infer<typeof insertMessageFileSchema>;
+export type MessageFile = typeof messageFiles.$inferSelect;
+
+export const fileAttachmentSchema = z.object({
+  filename: z.string(),
+  originalName: z.string(),
+  mimeType: z.string(),
+  size: z.number(),
+  data: z.string(),
+});
+
+export type FileAttachment = z.infer<typeof fileAttachmentSchema>;
 
 export const chatRequestSchema = z.object({
   message: z.string().min(1, "Message cannot be empty"),
@@ -85,6 +119,7 @@ export const chatRequestSchema = z.object({
   parentMessageId: z.number().nullable().optional(),
   threadContext: z.boolean().optional(),
   threadRootId: z.number().optional(),
+  files: z.array(fileAttachmentSchema).optional(),
 });
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>;

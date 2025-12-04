@@ -9,7 +9,7 @@ import { ExportButton } from "@/components/ExportButton";
 import { EditableChatTitle } from "@/components/EditableChatTitle";
 import { ThreadPanel } from "@/components/ThreadPanel";
 import { ThreadsDropdown } from "@/components/ThreadsDropdown";
-import { type Message, type ModelValue, type Conversation } from "@shared/schema";
+import { type Message, type ModelValue, type Conversation, type FileAttachment, type MessageFile } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getActivePath, getSiblings, getThreadMessages, normalizeParentId, type BranchSelection } from "@/lib/messageTree";
@@ -49,6 +49,17 @@ export default function Chat() {
     enabled: !!conversationId,
   });
 
+  const { data: messageFiles = [] } = useQuery<MessageFile[]>({
+    queryKey: ["/api/conversations", conversationId, "files"],
+    queryFn: async () => {
+      if (!conversationId) return [];
+      const response = await fetch(`/api/conversations/${conversationId}/files`);
+      if (!response.ok) throw new Error("Failed to fetch message files");
+      return response.json();
+    },
+    enabled: !!conversationId,
+  });
+
   const activePath = useMemo(() => {
     return getActivePath(messages, branchSelections);
   }, [messages, branchSelections]);
@@ -78,20 +89,22 @@ export default function Chat() {
     },
   });
 
-  const handleSendMessage = async (content: string, parentMessageId?: number | null) => {
+  const handleSendMessage = async (content: string, parentMessageId?: number | null, files?: FileAttachment[]) => {
     let activeConversationId = conversationId;
+    let isNewConversation = false;
 
     try {
       if (!activeConversationId) {
         const newConv = await createConversationMutation.mutateAsync(content);
         activeConversationId = newConv.id;
+        isNewConversation = true;
       }
 
       setIsStreaming(true);
       setStreamingContent("");
 
       const lastMessage = activePath.length > 0 ? activePath[activePath.length - 1] : null;
-      const effectiveParentId = parentMessageId !== undefined ? parentMessageId : (lastMessage?.id ?? null);
+      const effectiveParentId = isNewConversation ? null : (parentMessageId !== undefined ? parentMessageId : (lastMessage?.id ?? null));
 
       const requestBody: Record<string, unknown> = {
         message: content,
@@ -102,6 +115,10 @@ export default function Chat() {
       
       if (conversation?.systemPrompt) {
         requestBody.systemPrompt = conversation.systemPrompt;
+      }
+      
+      if (files && files.length > 0) {
+        requestBody.files = files;
       }
 
       const response = await fetch("/api/chat", {
@@ -149,6 +166,7 @@ export default function Chat() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "files"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
 
       setIsStreaming(false);
@@ -356,6 +374,7 @@ export default function Chat() {
           messages={messages}
           activePath={activePath}
           allMessages={messages}
+          messageFiles={messageFiles}
           branchSelections={branchSelections}
           isStreaming={isStreaming}
           streamingContent={streamingContent}
@@ -367,7 +386,7 @@ export default function Chat() {
         />
 
         <div className="border-t-2 border-border px-6 py-4 flex-shrink-0">
-          <ChatInput onSend={(content) => handleSendMessage(content)} disabled={isStreaming} />
+          <ChatInput onSend={(content, files) => handleSendMessage(content, undefined, files)} disabled={isStreaming} />
         </div>
       </div>
     </div>

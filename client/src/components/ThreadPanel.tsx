@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { type Message, type ModelValue, modelOptions } from "@shared/schema";
+import { type Message, type ModelValue, type FileAttachment, modelOptions } from "@shared/schema";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatInput } from "./ChatInput";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 interface ThreadPanelProps {
   rootMessage: Message;
@@ -43,7 +42,7 @@ export function ThreadPanel({
     return model ? model.label : modelValue;
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, files?: FileAttachment[]) => {
     try {
       setIsStreaming(true);
       setStreamingContent("");
@@ -63,6 +62,10 @@ export function ThreadPanel({
 
       if (systemPrompt) {
         requestBody.systemPrompt = systemPrompt;
+      }
+      
+      if (files && files.length > 0) {
+        requestBody.files = files;
       }
 
       const response = await fetch("/api/chat", {

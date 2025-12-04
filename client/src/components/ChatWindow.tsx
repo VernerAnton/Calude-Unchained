@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { type Message } from "@shared/schema";
+import { type Message, type MessageFile } from "@shared/schema";
 import { ChatMessage } from "./ChatMessage";
 import { getSiblings, type BranchSelection } from "@/lib/messageTree";
 
@@ -7,6 +7,7 @@ interface ChatWindowProps {
   messages: Message[];
   activePath: Message[];
   allMessages: Message[];
+  messageFiles: MessageFile[];
   branchSelections: BranchSelection;
   isStreaming: boolean;
   streamingContent: string;
@@ -21,6 +22,7 @@ export function ChatWindow({
   messages,
   activePath,
   allMessages,
+  messageFiles,
   branchSelections,
   isStreaming,
   streamingContent,
@@ -62,11 +64,13 @@ export function ChatWindow({
       {displayMessages.map((message) => {
         const siblings = getSiblings(allMessages, message);
         const siblingIndex = siblings.findIndex(s => s.id === message.id);
+        const files = messageFiles.filter(f => f.messageId === message.id);
         
         return (
           <ChatMessage 
             key={message.id} 
             message={message}
+            files={files}
             siblings={siblings}
             siblingIndex={siblingIndex >= 0 ? siblingIndex : 0}
             onEdit={onEditMessage}

@@ -8,12 +8,15 @@ import {
   type InsertProject,
   type ProjectFile,
   type InsertProjectFile,
+  type MessageFile,
+  type InsertMessageFile,
   conversations, 
   messages,
   projects,
-  projectFiles
+  projectFiles,
+  messageFiles
 } from "@shared/schema";
-import { eq, desc, isNull } from "drizzle-orm";
+import { eq, desc, isNull, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Projects
@@ -41,6 +44,12 @@ export interface IStorage {
   getProjectFile(id: number): Promise<ProjectFile | undefined>;
   createProjectFile(file: InsertProjectFile): Promise<ProjectFile>;
   deleteProjectFile(id: number): Promise<void>;
+  
+  // Message Files
+  getMessageFiles(messageId: number): Promise<MessageFile[]>;
+  getMessageFilesForMessages(messageIds: number[]): Promise<MessageFile[]>;
+  createMessageFile(file: InsertMessageFile): Promise<MessageFile>;
+  deleteMessageFile(id: number): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -160,6 +169,25 @@ export class DbStorage implements IStorage {
 
   async deleteProjectFile(id: number): Promise<void> {
     await db.delete(projectFiles).where(eq(projectFiles.id, id));
+  }
+
+  // Message Files
+  async getMessageFiles(messageId: number): Promise<MessageFile[]> {
+    return await db.select().from(messageFiles).where(eq(messageFiles.messageId, messageId)).orderBy(messageFiles.createdAt);
+  }
+
+  async getMessageFilesForMessages(messageIds: number[]): Promise<MessageFile[]> {
+    if (messageIds.length === 0) return [];
+    return await db.select().from(messageFiles).where(inArray(messageFiles.messageId, messageIds)).orderBy(messageFiles.createdAt);
+  }
+
+  async createMessageFile(file: InsertMessageFile): Promise<MessageFile> {
+    const result = await db.insert(messageFiles).values(file).returning();
+    return result[0];
+  }
+
+  async deleteMessageFile(id: number): Promise<void> {
+    await db.delete(messageFiles).where(eq(messageFiles.id, id));
   }
 }
 
