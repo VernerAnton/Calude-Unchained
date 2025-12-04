@@ -1,276 +1,54 @@
 # Claude Chat - Typewriter AI Interface
 
-A beautiful, vintage typewriter-styled chat interface for the Anthropic Claude API. Features real-time streaming responses, multiple model selection, and a sophisticated three-state theme system.
-
 ## Overview
 
-This full-stack web application provides a custom interface for chatting with Claude AI, styled with a distinctive "old typewriter" aesthetic featuring Courier New typography, bordered cards with hard shadows, and warm gradient backgrounds.
+This full-stack web application provides a custom, vintage typewriter-styled interface for interacting with Anthropic's Claude AI. It features real-time streaming responses, multi-model selection, conversation management, and a sophisticated three-state theme system. The project aims to offer a unique and aesthetically pleasing chat experience with advanced AI capabilities.
 
-## Recent Changes
+## User Preferences
 
-**December 4, 2025 - Complete Threads & Branching Implementation**
-- **Message Tree Utilities:** New `client/src/lib/messageTree.ts` with functions for branch selection and tree traversal
-- **Branch Navigation UI:** `BranchNavigator` component shows "< 1/2 >" style navigation for message siblings
-- **Non-Destructive Editing:** Editing a message creates a NEW sibling branch instead of modifying/deleting history
-- **Thread Panel:** Isolated side panel for threaded conversations from any assistant message
-- **Thread Context Isolation:** Thread API calls only send root message + thread replies to Claude
-- **Active Path Rendering:** Messages rendered based on user's branch selections with proper parent key normalization
-- **Backend Thread Support:** Chat endpoint handles `threadContext`, `threadRootId`, `parentMessageId`
-- **Complete E2E Testing:** Branch navigation and thread functionality verified with Playwright
+I prefer iterative development, so please provide solutions step-by-step. I value clear, concise explanations and prefer to be asked before any major changes are made to the codebase. Ensure that all UI/UX decisions align with a professional, modern aesthetic featuring sharp corners and a full-screen layout.
 
-**December 3, 2025 - Threads/Branching Database Schema**
-- **parentMessageId Column:** Added `parent_message_id` column to messages table for conversation branching
-- **Self-Referential FK:** Column references `messages.id` with CASCADE delete for thread cleanup
-- **Schema Update:** Uses Drizzle's `AnyPgColumn` pattern for self-referential foreign keys
-- **Type Safety:** Updated `insertMessageSchema` with optional `parentMessageId` field
+## System Architecture
 
-**October 21, 2025 - Major UI Redesign**
-- **Branding Update:** Changed title from "CLAUDE CHAT" to "Claude Unchained"
-- **Full-Screen Layout:** Chat window now expands to full available width with collapsible sidebar
-- **Minimal Message Design:** User messages aligned right, assistant messages aligned left, no background bubbles for clean aesthetic
-- **Sharp Corners:** All elements use sharp 0px border-radius for clean, modern aesthetic
-- **Streamlined Header:** Compact header bar with title, conversation info, and controls
+### UI/UX Decisions
+The application features a professional, modern design with a distinctive "old typewriter" aesthetic.
+- **Typography**: 'Courier New' monospace font is used throughout the application.
+- **Color Scheme**: Three-state theme toggle (System preference, Light, Dark) with warm gradient backgrounds (paper tones in light, deep terminal in dark).
+- **Layout**: Full-screen layout with a collapsible sidebar for navigation. User messages are right-aligned, and assistant messages are left-aligned, both without background bubbles for a clean look. All UI elements have sharp, 0px border-radius.
+- **Responsiveness**: Optimized for desktop, tablet, and mobile.
+- **Accessibility**: Proper ARIA labels and keyboard support are implemented.
 
-**October 19, 2025 - Initial Release**
-- **Database Implementation:** PostgreSQL with conversations and messages tables
-- **Multi-Conversation Management:** Shadcn sidebar with conversation list and navigation
-- **Conversation Persistence:** Auto-save messages to database after streaming
-- **Message Actions:** Edit, regenerate, and delete functionality with confirmation dialogs
-- **System Prompt Customization:** Per-conversation custom system prompts with UI indicator
-- **Export Functionality:** Download conversations as Markdown or plain text files
-- **Model Display:** Each assistant message shows which Claude model generated it
-- **Critical Bug Fix:** Corrected apiRequest function signature (url, options) pattern
-- **E2E Testing:** Comprehensive Playwright tests passed for all features
+### Technical Implementations
+- **Frontend**: Built with React, TypeScript, Wouter for routing, TailwindCSS for styling, and TanStack Query for data management. Shadcn UI components are utilized for consistent design.
+- **Backend**: Implemented using Express.js and Node.js.
+- **Database**: PostgreSQL (Neon) with Drizzle ORM for type-safe database interactions.
+- **AI Integration**: Anthropic Claude API via `@anthropic-ai/sdk`, with all API calls proxied through the backend for security. Server-Sent Events (SSE) are used for real-time streaming responses.
+- **Validation**: Zod is used for request data validation.
+- **Conversation Management**: Supports multiple conversations, system prompt customization per conversation, and message actions (edit, regenerate, delete).
+- **Threads & Branching**: Non-destructive editing creates new sibling branches, preserving history. Branch navigation allows switching between message versions. Isolated side panels support threaded conversations from any assistant message, with context isolation for API calls.
 
-## Features
+### Feature Specifications
+- Real-time streaming chat with Claude AI models (Opus, Sonnet, Haiku).
+- Multi-conversation management with persistence in PostgreSQL.
+- Auto-scrolling chat window and streaming indicator with typewriter cursor animation.
+- Custom system prompts per conversation.
+- Export conversations as Markdown or plain text.
+- Display of Claude model used for each assistant message.
+- File attachment support for images, PDFs, and text/code files, processed intelligently for Claude.
+- Branch navigation and isolated thread conversations for complex discussions.
 
-### Core Functionality
-- **Real-time streaming chat** with Claude AI models
-- **Model selection dropdown** for choosing between:
-  - Claude 4.1 Opus (claude-opus-4-20250514)
-  - Claude 4.5 Sonnet (claude-sonnet-4-5)
-  - Claude 4.5 Haiku (claude-haiku-4-5)
-- **Multi-conversation management** with sidebar navigation
-- **PostgreSQL persistence** - conversations and messages saved to database
-- **Auto-scrolling chat window** that follows new messages
-- **Streaming indicator** with typewriter cursor animation
-- **Message actions:** Edit user messages, regenerate assistant responses, delete any message
-- **System prompt customization** - set custom prompts per conversation
-- **Export conversations** - download as Markdown or plain text files
-- **Model labels** - each assistant message displays which Claude model was used
+### System Design Choices
+- **Schema-first architecture**: Ensures type safety across frontend and backend.
+- **Drizzle ORM**: Provides type-safe database queries.
+- **Server-Sent Events**: Used for efficient one-way streaming communication.
+- **Database Schema**: `conversations`, `messages`, `messageFiles`, `projects`, and `projectFiles` tables with appropriate relationships and cascade deletes. `parentMessageId` in the `messages` table supports conversation branching. `messageFiles` stores file attachments with base64 data for images/PDFs and extracted content for text files.
 
-### Threads & Branching
-- **Non-destructive editing:** Editing a message creates a new sibling branch, preserving history
-- **Branch navigation:** Arrow controls (< 1/2 >) to switch between message versions
-- **Thread conversations:** Open isolated side threads from any assistant message
-- **Thread context isolation:** Threads only include root message + thread replies when talking to Claude
-- **Active path rendering:** Messages displayed based on user's branch selections
+## External Dependencies
 
-### Design & UX
-- **Professional modern design** with Courier New monospace font throughout
-- **Sharp corners** on all UI elements (0px border-radius)
-- **Full-screen layout** with collapsible sidebar navigation
-- **Differentiated message alignment**: User messages right, assistant messages left
-- **Warm gradient backgrounds** (paper tones in light, terminal in dark)
-- **Three-state theme toggle**: System preference, Light mode, Dark mode
-- **Responsive layout** optimized for desktop, tablet, and mobile
-- **Accessible interactions** with proper ARIA labels and keyboard support
-
-### Visual Details
-- User messages: Right-aligned with no background, using default text color
-- Assistant messages: Left-aligned with no background, using default text color
-- Compact header bar with conversation title and controls
-- Empty state with chat bubble emoji and "Ready to chat" message
-- Loading states with animated blinking cursor (▌)
-- Smooth transitions between themes
-
-## Project Architecture
-
-### Frontend (`client/src/`)
-- **Components:**
-  - `AppSidebar.tsx` - Shadcn sidebar with conversation list and NEW CHAT button
-  - `ThemeToggle.tsx` - Three-state theme system with localStorage
-  - `ModelSelector.tsx` - Dropdown for Claude model selection
-  - `SystemPromptDialog.tsx` - Dialog for setting custom system prompts
-  - `ExportButton.tsx` - Dropdown menu for exporting conversations
-  - `ChatWindow.tsx` - Scrollable message history container with active path rendering
-  - `ChatMessage.tsx` - Individual message bubble with model labels, edit, and thread button
-  - `MessageActions.tsx` - Edit, regenerate, and delete action buttons
-  - `ChatInput.tsx` - Auto-resizing textarea with send button
-  - `BranchNavigator.tsx` - "< 1/2 >" style navigation for message siblings
-  - `ThreadPanel.tsx` - Resizable side panel for isolated thread conversations
-- **Utilities:**
-  - `lib/messageTree.ts` - Functions for building message trees, computing active paths, getting siblings
-- **Pages:**
-  - `Chat.tsx` - Main chat interface with branching state and thread panel integration
-- **Styling:**
-  - `index.css` - Typewriter color tokens and elevation utilities
-  - `tailwind.config.ts` - Design system configuration
-
-### Backend (`server/`)
-- **Routes:**
-  - `GET /api/conversations` - List all conversations
-  - `POST /api/conversations` - Create new conversation
-  - `GET /api/conversations/:id` - Get single conversation
-  - `PATCH /api/conversations/:id` - Update conversation (title, systemPrompt)
-  - `DELETE /api/conversations/:id` - Delete conversation (cascades to messages)
-  - `GET /api/conversations/:id/messages` - Get messages for conversation
-  - `POST /api/messages` - Create new message
-  - `DELETE /api/messages/:id` - Delete single message
-  - `POST /api/chat` - Streaming chat endpoint with SSE
-- **Services:**
-  - `anthropic.ts` - Claude API client initialization
-  - `storage.ts` - IStorage interface with MemStorage implementation
-  - `db.ts` - Drizzle ORM database connection
-- **Features:**
-  - Zod validation for all request data
-  - Conversation history support
-  - System prompt integration
-  - Database persistence with Drizzle ORM
-  - Error handling with appropriate status codes
-
-### Shared (`shared/`)
-- `schema.ts` - Drizzle ORM schema definitions:
-  - `conversations` table (id, title, systemPrompt, projectId, createdAt, updatedAt)
-  - `messages` table (id, conversationId, parentMessageId, role, content, model, createdAt)
-  - `projects` table (id, name, instructions, createdAt, updatedAt)
-  - `projectFiles` table (id, projectId, filename, originalName, mimeType, size, createdAt)
-  - Zod insert/select schemas for type safety
-  - TypeScript types for frontend/backend consistency
-
-## Technology Stack
-
-- **Frontend:** React, TypeScript, Wouter (routing), TailwindCSS, TanStack Query
-- **Backend:** Express.js, Node.js
-- **Database:** PostgreSQL (Neon) with Drizzle ORM
-- **AI:** Anthropic Claude API (via @anthropic-ai/sdk)
-- **UI Components:** Shadcn UI (Radix UI primitives)
-- **Streaming:** Server-Sent Events (SSE)
-- **Validation:** Zod
-- **Styling:** Custom CSS variables + Tailwind utilities
-
-## Environment Variables
-
-- `ANTHROPIC_API_KEY` - Required for Claude API access (stored in Replit Secrets)
-- `DATABASE_URL` - PostgreSQL connection string (automatically configured)
-- `SESSION_SECRET` - Session management (pre-configured)
-- `PG*` variables - PostgreSQL connection details (automatically configured)
-
-## Design System
-
-### Color Palette
-**Light Mode:**
-- Background: Linear gradient #f4f1ea → #ebe7db (warm paper)
-- Foreground: #292929 (dark grey text)
-- Primary (User messages): #C7C7C7 (light grey bubble, 78% lightness)
-- Primary Foreground (User text): #292929 (dark grey text, 16% lightness)
-- Muted (Assistant messages): #D6D6D6 (light grey bubble, 84% lightness)
-- Muted Foreground (Assistant text): #FCFCFC (white text, 99% lightness)
-- Border: #292929
-
-**Dark Mode:**
-- Background: Linear gradient #1a1a1a → #0d0d0d (deep terminal)
-- Foreground: #E0E0E0 (light grey text)
-- Primary (User messages): #595959 (medium grey, 35% lightness)
-- Muted (Assistant messages): #333333 (dark grey, 20% lightness)
-- Border: #E0E0E0
-
-### Typography
-- All text: 'Courier New', Courier, monospace
-- Header title: 1.125rem (18px), bold
-- Body: 0.875-1rem, 1.5 line-height
-- Message labels: Uppercase, 0.1em letter-spacing, font-semibold
-
-### Layout & Spacing
-- Full-screen chat window (max-width 900px centered for readability)
-- Message bubbles: max-width 75%, padding 1rem
-- Header: Compact with border-bottom separator
-- Input area: Centered max-width 900px
-- Border-radius: 0px on all elements (sharp corners)
-
-## Data Persistence
-
-**Database:**
-- All conversations and messages stored in PostgreSQL
-- Cascade delete ensures message cleanup when conversation is deleted
-- Timestamps track creation and updates
-
-**LocalStorage:**
-- Theme preference (system/light/dark)
-- Automatically applies saved theme on page load to prevent flash
-
-## Running the Project
-
-The application runs automatically via the "Start application" workflow:
-```bash
-npm run dev
-```
-
-This starts:
-- Express server on port 5000 (backend)
-- Vite dev server (frontend, proxied through Express)
-
-## API Integration
-
-The app integrates with Anthropic's Claude API using the official SDK. All API calls are proxied through the backend to keep the API key secure. The streaming implementation uses Claude's messages.stream() method for real-time token-by-token responses.
-
-**Features:**
-- Conversation history support (full context passed to Claude)
-- Custom system prompts applied per conversation
-- Model selection persisted with each message
-- Automatic conversation creation on first message
-- Message title generation from first user message (max 50 chars)
-
-## Completed Features
-
-All originally planned features have been implemented:
-- ✅ Conversation persistence across sessions
-- ✅ Message editing and regeneration
-- ✅ Conversation export (markdown/text)
-- ✅ System prompt customization
-- ✅ Multi-conversation management
-
-## Potential Future Enhancements
-
-- Message copying and formatting options
-- Conversation search/filtering
-- Conversation folders/tags
-- Conversation sharing (read-only links)
-- Message attachments (images, files)
-- Code syntax highlighting in messages
-- Conversation templates
-- Keyboard shortcuts
-- Dark/light theme per conversation
-
-## Implementation Notes
-
-**Visual Design:**
-- Modern professional aesthetic inspired by official Claude app
-- Sharp corners (0px border-radius) on all UI elements
-- User messages right-aligned with dark background
-- Assistant messages left-aligned with light background  
-- Full-width layout with collapsible sidebar
-- Courier New monospace font throughout
-- Streaming responses provide immediate feedback for better UX
-- Theme system respects system preferences by default
-
-**Technical Decisions:**
-- Schema-first architecture ensures type safety across frontend/backend
-- Drizzle ORM provides type-safe database queries
-- TanStack Query handles caching and optimistic updates
-- Server-Sent Events for efficient streaming (one-way communication)
-- Shadcn UI components maintain consistent typewriter aesthetic
-- apiRequest function follows standard fetch(url, options) pattern
-
-**Database Design:**
-- Serial IDs for simplicity and performance
-- Cascade delete from conversations to messages
-- System prompt nullable (null = use default Claude behavior)
-- Model stored with each message for historical tracking
-- Timestamps enable sorting and display
-
-**Testing:**
-- Comprehensive E2E tests with Playwright
-- Database verification included in test plan
-- UI interactions tested with data-testid attributes
-- Streaming behavior validated end-to-end
+- **AI Service**: Anthropic Claude API (`@anthropic-ai/sdk`)
+- **Database**: PostgreSQL (specifically Neon for cloud deployment)
+- **UI Components**: Shadcn UI (built on Radix UI primitives)
+- **Frontend Routing**: Wouter
+- **Data Fetching/Caching**: TanStack Query
+- **Styling Framework**: TailwindCSS
+- **Validation Library**: Zod
