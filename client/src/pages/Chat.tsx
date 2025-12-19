@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ModelSelector } from "@/components/ModelSelector";
@@ -26,6 +26,21 @@ export default function Chat() {
   const [branchSelections, setBranchSelections] = useState<BranchSelection>({});
   const [threadRootId, setThreadRootId] = useState<number | null>(null);
   const { toast } = useToast();
+  
+  const streamingContentRef = useRef("");
+  const rafIdRef = useRef<number | null>(null);
+  
+  const flushStreamingContent = useCallback(() => {
+    setStreamingContent(streamingContentRef.current);
+    rafIdRef.current = null;
+  }, []);
+  
+  const scheduleStreamingUpdate = useCallback((content: string) => {
+    streamingContentRef.current = content;
+    if (rafIdRef.current === null) {
+      rafIdRef.current = requestAnimationFrame(flushStreamingContent);
+    }
+  }, [flushStreamingContent]);
 
   const { data: conversation } = useQuery<Conversation>({
     queryKey: ["/api/conversations", conversationId],
@@ -102,6 +117,7 @@ export default function Chat() {
 
       setIsStreaming(true);
       setStreamingContent("");
+      streamingContentRef.current = "";
 
       const lastMessage = activePath.length > 0 ? activePath[activePath.length - 1] : null;
       const effectiveParentId = isNewConversation ? null : (parentMessageId !== undefined ? parentMessageId : (lastMessage?.id ?? null));
@@ -155,7 +171,7 @@ export default function Chat() {
                 const parsed = JSON.parse(data);
                 if (parsed.content) {
                   fullContent += parsed.content;
-                  setStreamingContent(fullContent);
+                  scheduleStreamingUpdate(fullContent);
                 }
               } catch (e) {
                 // Skip invalid JSON
@@ -165,14 +181,25 @@ export default function Chat() {
         }
       }
 
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "files"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
 
       setIsStreaming(false);
       setStreamingContent("");
+      streamingContentRef.current = "";
     } catch (error) {
       console.error("Error sending message:", error);
+      
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
       
       toast({
         title: "Error",
@@ -181,6 +208,7 @@ export default function Chat() {
       });
       setIsStreaming(false);
       setStreamingContent("");
+      streamingContentRef.current = "";
     }
   };
 

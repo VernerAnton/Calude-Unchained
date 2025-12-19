@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { type Message, type MessageFile } from "@shared/schema";
 import { ChatMessage } from "./ChatMessage";
 import { getSiblings, type BranchSelection } from "@/lib/messageTree";
@@ -33,14 +33,40 @@ export function ChatWindow({
   onOpenThread
 }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const lastMessageCountRef = useRef(0);
+  const wasStreamingRef = useRef(false);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const scrollToBottom = useCallback((smooth: boolean = true) => {
+    if (smooth) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+    }
+  }, []);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [activePath, streamingContent]);
+    const currentMessageCount = activePath.length;
+    const hasNewMessage = currentMessageCount > lastMessageCountRef.current;
+    
+    if (hasNewMessage && !isStreaming) {
+      scrollToBottom(true);
+    }
+    
+    lastMessageCountRef.current = currentMessageCount;
+  }, [activePath.length, isStreaming, scrollToBottom]);
+
+  useEffect(() => {
+    if (isStreaming && streamingContent) {
+      scrollToBottom(false);
+    }
+    
+    if (wasStreamingRef.current && !isStreaming) {
+      scrollToBottom(true);
+    }
+    
+    wasStreamingRef.current = isStreaming;
+  }, [isStreaming, streamingContent, scrollToBottom]);
 
   const displayMessages = activePath.length > 0 ? activePath : messages;
 
