@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { type Message, type MessageFile, modelOptions } from "@shared/schema";
 import { MessageActions } from "./MessageActions";
 import { BranchNavigator } from "./BranchNavigator";
@@ -49,7 +49,7 @@ const getTruncatedText = (text: string, wordLimit: number): string => {
 };
 // ========== END OF NEW HELPER FUNCTIONS ==========
 
-export function ChatMessage({ 
+export const ChatMessage = memo(function ChatMessage({ 
   message,
   files = [],
   siblings = [],
@@ -259,4 +259,4 @@ export function ChatMessage({
       </div>
     </div>
   );
-}
+});

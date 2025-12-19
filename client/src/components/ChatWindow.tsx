@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import { type Message, type MessageFile } from "@shared/schema";
 import { ChatMessage } from "./ChatMessage";
 import { getSiblings, type BranchSelection } from "@/lib/messageTree";
@@ -70,6 +70,26 @@ export function ChatWindow({
 
   const displayMessages = activePath.length > 0 ? activePath : messages;
 
+  const siblingsMap = useMemo(() => {
+    const map = new Map<number, { siblings: Message[]; index: number }>();
+    for (const message of displayMessages) {
+      const siblings = getSiblings(allMessages, message);
+      const index = siblings.findIndex(s => s.id === message.id);
+      map.set(message.id, { siblings, index: index >= 0 ? index : 0 });
+    }
+    return map;
+  }, [displayMessages, allMessages]);
+
+  const filesMap = useMemo(() => {
+    const map = new Map<number, MessageFile[]>();
+    for (const file of messageFiles) {
+      const existing = map.get(file.messageId) || [];
+      existing.push(file);
+      map.set(file.messageId, existing);
+    }
+    return map;
+  }, [messageFiles]);
+
   return (
     <div
       className="flex-1 overflow-y-auto py-6"
@@ -88,17 +108,16 @@ export function ChatWindow({
       )}
 
       {displayMessages.map((message) => {
-        const siblings = getSiblings(allMessages, message);
-        const siblingIndex = siblings.findIndex(s => s.id === message.id);
-        const files = messageFiles.filter(f => f.messageId === message.id);
+        const siblingData = siblingsMap.get(message.id) || { siblings: [], index: 0 };
+        const files = filesMap.get(message.id) || [];
         
         return (
           <ChatMessage 
             key={message.id} 
             message={message}
             files={files}
-            siblings={siblings}
-            siblingIndex={siblingIndex >= 0 ? siblingIndex : 0}
+            siblings={siblingData.siblings}
+            siblingIndex={siblingData.index}
             onEdit={onEditMessage}
             onRegenerate={onRegenerateMessage}
             onDelete={onDeleteMessage}
