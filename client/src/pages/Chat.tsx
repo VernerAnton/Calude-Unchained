@@ -23,6 +23,7 @@ export default function Chat() {
   const [selectedModel, setSelectedModel] = useState<ModelValue>("claude-sonnet-4-5");
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
   const [branchSelections, setBranchSelections] = useState<BranchSelection>({});
   const [threadRootId, setThreadRootId] = useState<number | null>(null);
   const { toast } = useToast();
@@ -118,6 +119,7 @@ export default function Chat() {
       setIsStreaming(true);
       setStreamingContent("");
       streamingContentRef.current = "";
+      setPendingUserMessage(content);
 
       const lastMessage = activePath.length > 0 ? activePath[activePath.length - 1] : null;
       const effectiveParentId = isNewConversation ? null : (parentMessageId !== undefined ? parentMessageId : (lastMessage?.id ?? null));
@@ -193,6 +195,7 @@ export default function Chat() {
       setIsStreaming(false);
       setStreamingContent("");
       streamingContentRef.current = "";
+      setPendingUserMessage(null);
     } catch (error) {
       console.error("Error sending message:", error);
       
@@ -209,6 +212,7 @@ export default function Chat() {
       setIsStreaming(false);
       setStreamingContent("");
       streamingContentRef.current = "";
+      setPendingUserMessage(null);
     }
   };
 
@@ -406,6 +410,7 @@ export default function Chat() {
           branchSelections={branchSelections}
           isStreaming={isStreaming}
           streamingContent={streamingContent}
+          pendingUserMessage={pendingUserMessage}
           onEditMessage={handleEditMessage}
           onRegenerateMessage={handleRegenerateMessage}
           onDeleteMessage={handleDeleteMessage}

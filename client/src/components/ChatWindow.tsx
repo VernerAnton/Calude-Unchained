@@ -11,6 +11,7 @@ interface ChatWindowProps {
   branchSelections: BranchSelection;
   isStreaming: boolean;
   streamingContent: string;
+  pendingUserMessage?: string | null;
   onEditMessage?: (messageId: number, newContent: string) => void;
   onRegenerateMessage?: (messageId: number) => void;
   onDeleteMessage?: (messageId: number) => void;
@@ -26,6 +27,7 @@ export function ChatWindow({
   branchSelections,
   isStreaming,
   streamingContent,
+  pendingUserMessage,
   onEditMessage,
   onRegenerateMessage,
   onDeleteMessage,
@@ -126,6 +128,19 @@ export function ChatWindow({
           />
         );
       })}
+
+      {pendingUserMessage && (
+        <div className="flex justify-end mb-4 px-4" data-testid="pending-user-message">
+          <div className="max-w-[75%] p-4">
+            <div className="flex items-center gap-2 mb-2 text-xs font-semibold uppercase tracking-wider justify-end">
+              <span>You</span>
+            </div>
+            <div className="whitespace-pre-wrap break-words leading-relaxed text-right">
+              {pendingUserMessage}
+            </div>
+          </div>
+        </div>
+      )}
 
       {isStreaming && (
         <div className="flex justify-start mb-4 px-4" data-testid="streaming-message">
