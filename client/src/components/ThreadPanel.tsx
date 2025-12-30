@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { ChatInput } from "./ChatInput";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ThreadPanelProps {
   rootMessage: Message;
@@ -173,8 +175,14 @@ export function ThreadPanel({
                   <span className="text-[10px] opacity-70">• Thread root</span>
                 )}
               </div>
-              <div className="whitespace-pre-wrap break-words leading-relaxed">
-                {message.content}
+              <div className="break-words leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-headings:font-mono prose-headings:uppercase prose-headings:tracking-wider prose-code:before:content-none prose-code:after:content-none prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:border-2 prose-pre:border-border">
+                {isUser ? (
+                  <div className="whitespace-pre-wrap">{message.content}</div>
+                ) : (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {message.content}
+                  </ReactMarkdown>
+                )}
               </div>
             </div>
           );
@@ -185,8 +193,10 @@ export function ThreadPanel({
             <div className="flex items-center gap-2 mb-2 text-xs font-semibold uppercase tracking-wider">
               <span>Claude</span>
             </div>
-            <div className="whitespace-pre-wrap break-words leading-relaxed">
-              {streamingContent}
+            <div className="break-words leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-headings:font-mono prose-headings:uppercase prose-headings:tracking-wider prose-code:before:content-none prose-code:after:content-none prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:border-2 prose-pre:border-border">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {streamingContent}
+              </ReactMarkdown>
               <span className="inline-block animate-blink ml-1">▌</span>
             </div>
           </div>
