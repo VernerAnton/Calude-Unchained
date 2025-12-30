@@ -15,6 +15,7 @@ export const conversations = pgTable("conversations", {
   title: varchar("title", { length: 255 }).notNull(),
   systemPrompt: text("system_prompt"),
   projectId: integer("project_id").references(() => projects.id, { onDelete: "set null" }),
+  draft: text("draft"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
