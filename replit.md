@@ -36,6 +36,7 @@ The application features a professional, modern design with a distinctive "old t
 - Display of Claude model used for each assistant message.
 - File attachment support for images, PDFs, and text/code files, processed intelligently for Claude.
 - Branch navigation and isolated thread conversations for complex discussions.
+- Rich text rendering of Claude responses with Markdown support (bold, italic, code, lists, headers).
 
 ### System Design Choices
 - **Schema-first architecture**: Ensures type safety across frontend and backend.
