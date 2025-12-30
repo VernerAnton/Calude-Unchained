@@ -26,6 +26,8 @@ interface ChatInputProps {
   disabled: boolean;
   placeholder?: string;
   testIdPrefix?: string;
+  initialValue?: string;
+  onDraftChange?: (draft: string) => void;
 }
 
 interface PendingFile {
@@ -51,11 +53,19 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
-export function ChatInput({ onSend, disabled, placeholder = "Type your message here...", testIdPrefix = "" }: ChatInputProps) {
-  const [message, setMessage] = useState("");
+export function ChatInput({ onSend, disabled, placeholder = "Type your message here...", testIdPrefix = "", initialValue = "", onDraftChange }: ChatInputProps) {
+  const [message, setMessage] = useState(initialValue);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastInitialValueRef = useRef(initialValue);
+
+  useEffect(() => {
+    if (initialValue !== lastInitialValueRef.current) {
+      setMessage(initialValue);
+      lastInitialValueRef.current = initialValue;
+    }
+  }, [initialValue]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -63,6 +73,11 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
     }
   }, [message]);
+
+  const handleMessageChange = (newMessage: string) => {
+    setMessage(newMessage);
+    onDraftChange?.(newMessage);
+  };
 
   const readFileAsBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -205,7 +220,7 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
         <textarea
           ref={textareaRef}
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => handleMessageChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}

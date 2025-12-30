@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ModelSelector } from "@/components/ModelSelector";
@@ -30,6 +30,7 @@ export default function Chat() {
   
   const streamingContentRef = useRef("");
   const rafIdRef = useRef<number | null>(null);
+  const draftTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const flushStreamingContent = useCallback(() => {
     setStreamingContent(streamingContentRef.current);
@@ -42,6 +43,36 @@ export default function Chat() {
       rafIdRef.current = requestAnimationFrame(flushStreamingContent);
     }
   }, [flushStreamingContent]);
+
+  const saveDraft = useCallback(async (draft: string) => {
+    if (!conversationId) return;
+    try {
+      await apiRequest(`/api/conversations/${conversationId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ draft: draft || null }),
+      });
+      await queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId] });
+    } catch (error) {
+      console.error("Failed to save draft:", error);
+    }
+  }, [conversationId]);
+
+  const handleDraftChange = useCallback((draft: string) => {
+    if (draftTimeoutRef.current) {
+      clearTimeout(draftTimeoutRef.current);
+    }
+    draftTimeoutRef.current = setTimeout(() => {
+      saveDraft(draft);
+    }, 1000);
+  }, [saveDraft]);
+
+  useEffect(() => {
+    return () => {
+      if (draftTimeoutRef.current) {
+        clearTimeout(draftTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const { data: conversation } = useQuery<Conversation>({
     queryKey: ["/api/conversations", conversationId],
@@ -191,6 +222,11 @@ export default function Chat() {
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "files"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+
+      if (draftTimeoutRef.current) {
+        clearTimeout(draftTimeoutRef.current);
+      }
+      saveDraft("");
 
       setIsStreaming(false);
       setStreamingContent("");
@@ -419,7 +455,12 @@ export default function Chat() {
         />
 
         <div className="border-t-2 border-border px-6 py-4 flex-shrink-0">
-          <ChatInput onSend={(content, files) => handleSendMessage(content, undefined, files)} disabled={isStreaming} />
+          <ChatInput 
+            onSend={(content, files) => handleSendMessage(content, undefined, files)} 
+            disabled={isStreaming}
+            initialValue={conversation?.draft || ""}
+            onDraftChange={handleDraftChange}
+          />
         </div>
       </div>
     </div>
