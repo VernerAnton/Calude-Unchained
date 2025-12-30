@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { type Message, type ModelValue, type FileAttachment, modelOptions } from "@shared/schema";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatInput } from "./ChatInput";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -27,8 +27,42 @@ export function ThreadPanel({
 }: ThreadPanelProps) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [sendCount, setSendCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const draftTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { toast } = useToast();
+
+  const saveThreadDraft = useCallback(async (draft: string) => {
+    if (!rootMessage.id) return;
+    try {
+      await apiRequest(`/api/messages/${rootMessage.id}/thread-draft`, {
+        method: "PATCH",
+        body: JSON.stringify({ threadDraft: draft || null }),
+      });
+      await queryClient.invalidateQueries({ 
+        queryKey: ["/api/conversations", conversationId, "messages"] 
+      });
+    } catch (error) {
+      console.error("Failed to save thread draft:", error);
+    }
+  }, [rootMessage.id, conversationId]);
+
+  const handleDraftChange = useCallback((draft: string) => {
+    if (draftTimeoutRef.current) {
+      clearTimeout(draftTimeoutRef.current);
+    }
+    draftTimeoutRef.current = setTimeout(() => {
+      saveThreadDraft(draft);
+    }, 1000);
+  }, [saveThreadDraft]);
+
+  useEffect(() => {
+    return () => {
+      if (draftTimeoutRef.current) {
+        clearTimeout(draftTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -117,6 +151,12 @@ export function ThreadPanel({
       await queryClient.invalidateQueries({ 
         queryKey: ["/api/conversations", conversationId, "messages"] 
       });
+
+      if (draftTimeoutRef.current) {
+        clearTimeout(draftTimeoutRef.current);
+      }
+      saveThreadDraft("");
+      setSendCount(c => c + 1);
 
       setIsStreaming(false);
       setStreamingContent("");
@@ -207,10 +247,13 @@ export function ThreadPanel({
 
       <div className="border-t-2 border-border px-4 py-3 flex-shrink-0">
         <ChatInput 
+          key={`thread-input-${rootMessage.id}-${sendCount}`}
           onSend={handleSendMessage} 
           disabled={isStreaming}
           placeholder="Reply in thread..."
           testIdPrefix="thread-"
+          initialValue={sendCount === 0 ? (rootMessage.threadDraft || "") : ""}
+          onDraftChange={handleDraftChange}
         />
       </div>
     </div>
