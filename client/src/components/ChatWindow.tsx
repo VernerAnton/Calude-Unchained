@@ -2,6 +2,8 @@ import { useEffect, useRef, useCallback, useMemo } from "react";
 import { type Message, type MessageFile } from "@shared/schema";
 import { ChatMessage } from "./ChatMessage";
 import { getSiblings, type BranchSelection } from "@/lib/messageTree";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ChatWindowProps {
   messages: Message[];
@@ -148,8 +150,10 @@ export function ChatWindow({
             <div className="flex items-center gap-2 mb-2 text-xs font-semibold uppercase tracking-wider">
               <span>Claude</span>
             </div>
-            <div className="whitespace-pre-wrap break-words leading-relaxed">
-              {streamingContent}
+            <div className="break-words leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-headings:font-mono prose-headings:uppercase prose-headings:tracking-wider prose-code:before:content-none prose-code:after:content-none prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:border-2 prose-pre:border-border">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {streamingContent}
+              </ReactMarkdown>
               {isStreaming && (
                 <span className="inline-block animate-blink ml-1">▌</span>
               )}
