@@ -28,6 +28,7 @@ export const messages = pgTable("messages", {
   content: text("content").notNull(),
   model: varchar("model", { length: 100 }),
   isThreadMessage: boolean("is_thread_message").notNull().default(false),
+  threadDraft: text("thread_draft"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -72,6 +73,7 @@ export const insertMessageSchema = z.object({
   content: z.string().min(1),
   model: z.string().optional(),
   isThreadMessage: z.boolean().optional(),
+  threadDraft: z.string().nullable().optional(),
 });
 
 export const insertProjectFileSchema = z.object({

@@ -38,6 +38,7 @@ export interface IStorage {
   getMessages(conversationId: number): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
   deleteMessage(id: number): Promise<void>;
+  updateMessageThreadDraft(id: number, threadDraft: string | null): Promise<void>;
   
   // Project Files
   getProjectFiles(projectId: number): Promise<ProjectFile[]>;
@@ -150,6 +151,10 @@ export class DbStorage implements IStorage {
 
   async deleteMessage(id: number): Promise<void> {
     await db.delete(messages).where(eq(messages.id, id));
+  }
+
+  async updateMessageThreadDraft(id: number, threadDraft: string | null): Promise<void> {
+    await db.update(messages).set({ threadDraft }).where(eq(messages.id, id));
   }
 
   // Project Files

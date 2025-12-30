@@ -224,6 +224,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update message thread draft
+  app.patch("/api/messages/:id/thread-draft", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { threadDraft } = req.body;
+      await storage.updateMessageThreadDraft(id, threadDraft);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating thread draft:", error);
+      res.status(500).json({ error: "Failed to update thread draft" });
+    }
+  });
+
   // Project Files
   app.get("/api/projects/:id/files", async (req, res) => {
     try {
