@@ -62,6 +62,7 @@ export const insertConversationSchema = z.object({
   title: z.string().min(1, "Title is required"),
   systemPrompt: z.string().optional(),
   projectId: z.number().optional(),
+  draft: z.string().nullable().optional(),
 });
 
 export const insertMessageSchema = z.object({
