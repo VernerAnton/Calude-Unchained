@@ -365,6 +365,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader("Connection", "keep-alive");
       res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering
       res.flushHeaders(); // Send headers immediately to start stream
+      
+      // Disable Nagle's algorithm for immediate packet delivery
+      if (res.socket) {
+        res.socket.setNoDelay(true);
+      }
 
       // Build conversation history for Claude API
       type ContentBlock = Anthropic.TextBlockParam | Anthropic.ImageBlockParam | Anthropic.DocumentBlockParam;
@@ -456,19 +461,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         streamOptions.system = systemPrompt;
       }
 
-      // Stream response from Claude
-      const stream = await anthropic.messages.stream(streamOptions);
-
+      // Stream response from Claude using event-based streaming for granular updates
       let fullContent = "";
 
-      // Process streaming response
-      for await (const chunk of stream) {
-        if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
-          fullContent += chunk.delta.text;
-          const data = JSON.stringify({ content: chunk.delta.text });
-          res.write(`data: ${data}\n\n`);
-        }
-      }
+      const stream = anthropic.messages.stream(streamOptions);
+      
+      // Use event-based streaming for immediate token delivery
+      stream.on('text', (text: string) => {
+        fullContent += text;
+        const data = JSON.stringify({ content: text });
+        res.write(`data: ${data}\n\n`);
+      });
+      
+      // Handle stream errors gracefully
+      stream.on('error', (error: Error) => {
+        console.error("Stream error:", error);
+        res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+        res.write(`data: [DONE]\n\n`);
+        res.end();
+      });
+
+      // Wait for stream to complete
+      await stream.finalMessage();
 
       // Save assistant response to database with parentMessageId set to the user message
       // Mark as thread message if in thread context
@@ -481,7 +495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isThreadMessage: threadContext ?? false,
       });
 
-      // Send completion signal
+      // Send completion signal and close stream
       res.write(`data: [DONE]\n\n`);
       res.end();
     } catch (error) {
