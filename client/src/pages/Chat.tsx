@@ -190,6 +190,17 @@ export default function Chat() {
       });
 
       if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        if (errorData?.error === "BUDGET_EXCEEDED") {
+          toast({
+            title: "Budget Exceeded",
+            description: errorData.message || "Monthly budget exceeded. Adjust your budget in settings to continue.",
+            variant: "destructive",
+          });
+          setIsStreaming(false);
+          setPendingUserMessage(null);
+          return;
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -233,6 +244,27 @@ export default function Chat() {
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "files"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/usage/summary"] });
+      
+      // Check for 80% budget warning
+      try {
+        const usageResponse = await fetch("/api/usage/summary");
+        if (usageResponse.ok) {
+          const usageData = await usageResponse.json();
+          if (usageData.monthlyBudget && usageData.warnAt80) {
+            const percentUsed = (usageData.thisMonth / usageData.monthlyBudget) * 100;
+            if (percentUsed >= 80 && percentUsed < 100) {
+              toast({
+                title: "Budget Warning",
+                description: `You've used ${percentUsed.toFixed(0)}% of your monthly budget.`,
+                variant: "destructive",
+              });
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore usage fetch errors
+      }
 
       if (draftTimeoutRef.current) {
         clearTimeout(draftTimeoutRef.current);

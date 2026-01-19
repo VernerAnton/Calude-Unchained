@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Paperclip, X, File, Image, FileText, FileCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
 import type { FileAttachment } from "@shared/schema";
 
 const ACCEPTED_FILE_TYPES = {
@@ -36,6 +37,30 @@ interface PendingFile {
   base64?: string;
 }
 
+interface UsageSummary {
+  today: number;
+  thisMonth: number;
+  monthlyBudget: number | null;
+  currency: string;
+}
+
+function formatCurrency(amount: number, currency: string = "USD"): string {
+  if (amount < 0.01) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 4,
+      maximumFractionDigits: 4,
+    }).format(amount);
+  }
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
 function getFileIcon(mimeType: string) {
   if (mimeType.startsWith("image/")) {
     return <Image className="w-4 h-4" />;
@@ -59,6 +84,11 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastInitialValueRef = useRef(initialValue);
+
+  const { data: usage } = useQuery<UsageSummary>({
+    queryKey: ["/api/usage/summary"],
+    refetchInterval: 30000,
+  });
 
   useEffect(() => {
     if (initialValue !== lastInitialValueRef.current) {
@@ -161,8 +191,22 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
     }
   };
 
+  const currency = usage?.currency || "USD";
+
   return (
     <div className="space-y-3">
+      {usage && (usage.today > 0 || usage.thisMonth > 0) && (
+        <div className="flex justify-end" data-testid="usage-widget">
+          <div className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
+            Today: {formatCurrency(usage.today, currency)} | Month: {formatCurrency(usage.thisMonth, currency)}
+            {usage.monthlyBudget && (
+              <span className={usage.thisMonth >= usage.monthlyBudget * 0.8 ? " text-destructive" : ""}>
+                {" "}/ {formatCurrency(usage.monthlyBudget, currency)}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
       {pendingFiles.length > 0 && (
         <div className="flex flex-wrap gap-2" data-testid={`${testIdPrefix}file-previews`}>
           {pendingFiles.map((pf, index) => (

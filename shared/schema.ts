@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, timestamp, integer, boolean, AnyPgColumn } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, AnyPgColumn, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -142,7 +142,21 @@ export const settings = pgTable("settings", {
   theme: varchar("theme", { length: 20 }).notNull().default("system"),
   autoTitle: boolean("auto_title").notNull().default(true),
   fontSize: varchar("font_size", { length: 20 }).notNull().default("medium"),
+  monthlyBudget: real("monthly_budget"),
+  warnAt80: boolean("warn_at_80").notNull().default(true),
+  hardStopAt100: boolean("hard_stop_at_100").notNull().default(false),
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const apiUsage = pgTable("api_usage", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  model: varchar("model", { length: 100 }).notNull(),
+  inputTokens: integer("input_tokens").notNull(),
+  outputTokens: integer("output_tokens").notNull(),
+  costUsd: real("cost_usd").notNull(),
+  conversationId: integer("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const insertSettingsSchema = z.object({
@@ -150,7 +164,35 @@ export const insertSettingsSchema = z.object({
   theme: z.enum(["system", "light", "dark"]).optional(),
   autoTitle: z.boolean().optional(),
   fontSize: z.enum(["small", "medium", "large"]).optional(),
+  monthlyBudget: z.number().nullable().optional(),
+  warnAt80: z.boolean().optional(),
+  hardStopAt100: z.boolean().optional(),
 });
 
 export type InsertSettings = z.infer<typeof insertSettingsSchema>;
 export type Settings = typeof settings.$inferSelect;
+
+export const insertApiUsageSchema = z.object({
+  model: z.string().min(1),
+  inputTokens: z.number(),
+  outputTokens: z.number(),
+  costUsd: z.number(),
+  conversationId: z.number().optional(),
+});
+
+export type InsertApiUsage = z.infer<typeof insertApiUsageSchema>;
+export type ApiUsage = typeof apiUsage.$inferSelect;
+
+export const MODEL_PRICING = {
+  "claude-opus-4-20250514": { inputPer1M: 15, outputPer1M: 75 },
+  "claude-sonnet-4-5": { inputPer1M: 3, outputPer1M: 15 },
+  "claude-haiku-4-5": { inputPer1M: 1, outputPer1M: 5 },
+} as const;
+
+export function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
+  const pricing = MODEL_PRICING[model as keyof typeof MODEL_PRICING];
+  if (!pricing) return 0;
+  const inputCost = (inputTokens / 1_000_000) * pricing.inputPer1M;
+  const outputCost = (outputTokens / 1_000_000) * pricing.outputPer1M;
+  return inputCost + outputCost;
+}

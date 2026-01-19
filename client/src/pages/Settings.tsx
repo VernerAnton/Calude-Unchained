@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Settings as SettingsIcon, ChevronLeft, Monitor, Sun, Moon, Trash2 } from "lucide-react";
+import { Settings as SettingsIcon, ChevronLeft, Monitor, Sun, Moon, Trash2, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -220,6 +221,76 @@ export default function SettingsPage() {
                 >
                   <span className="text-base uppercase tracking-wider">Large</span>
                 </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-2 border-border p-6" style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}>
+            <h2 className="font-mono text-sm uppercase tracking-wider font-bold mb-4 text-muted-foreground">
+              [ Budget ]
+            </h2>
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <Label htmlFor="monthly-budget" className="font-mono text-sm uppercase tracking-wider">
+                  Monthly Budget
+                </Label>
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="monthly-budget"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="No limit"
+                    value={settings?.monthlyBudget ?? ""}
+                    onChange={(e) => {
+                      const value = e.target.value === "" ? null : parseFloat(e.target.value);
+                      handleUpdateSetting("monthlyBudget", value as any);
+                    }}
+                    className="font-mono w-32"
+                    data-testid="input-monthly-budget"
+                  />
+                  <span className="font-mono text-sm text-muted-foreground uppercase">
+                    {settings?.currency || "USD"}
+                  </span>
+                </div>
+                <p className="font-mono text-xs text-muted-foreground">
+                  Set a monthly spending limit for API usage
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label htmlFor="warn-at-80" className="font-mono text-sm uppercase tracking-wider">
+                    Warn at 80%
+                  </Label>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    Show a warning when reaching 80% of budget
+                  </p>
+                </div>
+                <Switch
+                  id="warn-at-80"
+                  checked={settings?.warnAt80 ?? true}
+                  onCheckedChange={(checked) => handleUpdateSetting("warnAt80", checked)}
+                  data-testid="switch-warn-at-80"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label htmlFor="hard-stop" className="font-mono text-sm uppercase tracking-wider">
+                    Hard stop at 100%
+                  </Label>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    Block new messages when budget is exceeded
+                  </p>
+                </div>
+                <Switch
+                  id="hard-stop"
+                  checked={settings?.hardStopAt100 ?? false}
+                  onCheckedChange={(checked) => handleUpdateSetting("hardStopAt100", checked)}
+                  data-testid="switch-hard-stop"
+                />
               </div>
             </div>
           </div>

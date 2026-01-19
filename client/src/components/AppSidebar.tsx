@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Trash2, MessageSquare, ChevronRight, ChevronDown, Folder, FolderOpen, Settings } from "lucide-react";
+import { Plus, Trash2, MessageSquare, ChevronRight, ChevronDown, Folder, FolderOpen, Settings, BarChart3 } from "lucide-react";
 import { useState } from "react";
 import { ProjectDialog } from "./ProjectDialog";
 import {
@@ -432,15 +432,26 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t-2 border-border">
-        <button
-          onClick={() => navigate("/settings")}
-          className="w-full border-2 border-border bg-card text-card-foreground px-4 py-2 font-bold uppercase tracking-wider transition-all hover-elevate active-elevate-2 shadow-md flex items-center justify-center gap-2 mb-3"
-          style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}
-          data-testid="button-settings"
-        >
-          <Settings className="h-4 w-4" />
-          SETTINGS
-        </button>
+        <div className="flex gap-2 mb-3">
+          <button
+            onClick={() => navigate("/usage")}
+            className="flex-1 border-2 border-border bg-card text-card-foreground px-4 py-2 font-bold uppercase tracking-wider transition-all hover-elevate active-elevate-2 shadow-md flex items-center justify-center gap-2"
+            style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}
+            data-testid="button-usage"
+          >
+            <BarChart3 className="h-4 w-4" />
+            USAGE
+          </button>
+          <button
+            onClick={() => navigate("/settings")}
+            className="flex-1 border-2 border-border bg-card text-card-foreground px-4 py-2 font-bold uppercase tracking-wider transition-all hover-elevate active-elevate-2 shadow-md flex items-center justify-center gap-2"
+            style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}
+            data-testid="button-settings"
+          >
+            <Settings className="h-4 w-4" />
+            SETTINGS
+          </button>
+        </div>
         <div className="text-xs text-muted-foreground text-center">
           Powered by Claude AI
         </div>

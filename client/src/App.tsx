@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import Chat from "@/pages/Chat";
 import Settings from "@/pages/Settings";
+import Usage from "@/pages/Usage";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/" component={Chat} />
       <Route path="/chat/:id" component={Chat} />
       <Route path="/settings" component={Settings} />
+      <Route path="/usage" component={Usage} />
       <Route component={NotFound} />
     </Switch>
   );

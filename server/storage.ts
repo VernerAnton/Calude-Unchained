@@ -12,14 +12,17 @@ import {
   type InsertMessageFile,
   type Settings,
   type InsertSettings,
+  type ApiUsage,
+  type InsertApiUsage,
   conversations, 
   messages,
   projects,
   projectFiles,
   messageFiles,
-  settings
+  settings,
+  apiUsage
 } from "@shared/schema";
-import { eq, desc, isNull, inArray } from "drizzle-orm";
+import { eq, desc, isNull, inArray, gte, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Projects
@@ -58,6 +61,14 @@ export interface IStorage {
   // Settings
   getSettings(): Promise<Settings>;
   updateSettings(updates: InsertSettings): Promise<Settings>;
+  
+  // API Usage
+  recordApiUsage(usage: InsertApiUsage): Promise<ApiUsage>;
+  getUsageToday(): Promise<number>;
+  getUsageThisMonth(): Promise<number>;
+  getUsageLast7Days(): Promise<number>;
+  getDailyUsage(days: number): Promise<{ date: string; cost: number }[]>;
+  getUsageByModel(startDate: Date): Promise<{ model: string; cost: number }[]>;
   
   // Bulk operations
   deleteAllConversations(): Promise<void>;
@@ -223,6 +234,73 @@ export class DbStorage implements IStorage {
       .where(eq(settings.id, existing.id))
       .returning();
     return result[0];
+  }
+
+  // API Usage
+  async recordApiUsage(usage: InsertApiUsage): Promise<ApiUsage> {
+    const result = await db.insert(apiUsage).values(usage).returning();
+    return result[0];
+  }
+
+  async getUsageToday(): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const result = await db
+      .select({ total: sql<number>`COALESCE(SUM(${apiUsage.costUsd}), 0)` })
+      .from(apiUsage)
+      .where(gte(apiUsage.createdAt, today));
+    return Number(result[0]?.total) || 0;
+  }
+
+  async getUsageThisMonth(): Promise<number> {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const result = await db
+      .select({ total: sql<number>`COALESCE(SUM(${apiUsage.costUsd}), 0)` })
+      .from(apiUsage)
+      .where(gte(apiUsage.createdAt, startOfMonth));
+    return Number(result[0]?.total) || 0;
+  }
+
+  async getUsageLast7Days(): Promise<number> {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const result = await db
+      .select({ total: sql<number>`COALESCE(SUM(${apiUsage.costUsd}), 0)` })
+      .from(apiUsage)
+      .where(gte(apiUsage.createdAt, sevenDaysAgo));
+    return Number(result[0]?.total) || 0;
+  }
+
+  async getDailyUsage(days: number): Promise<{ date: string; cost: number }[]> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+    
+    const result = await db
+      .select({
+        date: sql<string>`DATE(${apiUsage.createdAt})`,
+        cost: sql<number>`COALESCE(SUM(${apiUsage.costUsd}), 0)`
+      })
+      .from(apiUsage)
+      .where(gte(apiUsage.createdAt, startDate))
+      .groupBy(sql`DATE(${apiUsage.createdAt})`)
+      .orderBy(sql`DATE(${apiUsage.createdAt})`);
+    
+    return result.map(r => ({ date: String(r.date), cost: Number(r.cost) }));
+  }
+
+  async getUsageByModel(startDate: Date): Promise<{ model: string; cost: number }[]> {
+    const result = await db
+      .select({
+        model: apiUsage.model,
+        cost: sql<number>`COALESCE(SUM(${apiUsage.costUsd}), 0)`
+      })
+      .from(apiUsage)
+      .where(gte(apiUsage.createdAt, startDate))
+      .groupBy(apiUsage.model);
+    
+    return result.map(r => ({ model: r.model, cost: Number(r.cost) }));
   }
 
   // Bulk operations

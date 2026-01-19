@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { anthropic } from "./anthropic";
-import { chatRequestSchema, insertConversationSchema, insertMessageSchema, insertProjectSchema, insertSettingsSchema, type FileAttachment } from "@shared/schema";
+import { chatRequestSchema, insertConversationSchema, insertMessageSchema, insertProjectSchema, insertSettingsSchema, type FileAttachment, calculateCost } from "@shared/schema";
 import { storage } from "./storage";
 import { z } from "zod";
 import multer from "multer";
@@ -347,6 +347,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // API Usage endpoints
+  app.get("/api/usage/summary", async (_req, res) => {
+    try {
+      const [today, thisMonth, last7Days, settings] = await Promise.all([
+        storage.getUsageToday(),
+        storage.getUsageThisMonth(),
+        storage.getUsageLast7Days(),
+        storage.getSettings(),
+      ]);
+      
+      // Calculate projected month-end based on 7-day trailing average
+      const now = new Date();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const dayOfMonth = now.getDate();
+      const remainingDays = daysInMonth - dayOfMonth;
+      const dailyAverage = last7Days / 7;
+      const projectedMonthEnd = thisMonth + (dailyAverage * remainingDays);
+      
+      res.json({
+        today,
+        thisMonth,
+        last7Days,
+        projectedMonthEnd,
+        monthlyBudget: settings.monthlyBudget,
+        currency: settings.currency,
+        warnAt80: settings.warnAt80,
+        hardStopAt100: settings.hardStopAt100,
+      });
+    } catch (error) {
+      console.error("Error fetching usage summary:", error);
+      res.status(500).json({ error: "Failed to fetch usage summary" });
+    }
+  });
+
+  app.get("/api/usage/daily", async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const dailyUsage = await storage.getDailyUsage(days);
+      res.json(dailyUsage);
+    } catch (error) {
+      console.error("Error fetching daily usage:", error);
+      res.status(500).json({ error: "Failed to fetch daily usage" });
+    }
+  });
+
+  app.get("/api/usage/by-model", async (req, res) => {
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const usageByModel = await storage.getUsageByModel(startOfMonth);
+      res.json(usageByModel);
+    } catch (error) {
+      console.error("Error fetching usage by model:", error);
+      res.status(500).json({ error: "Failed to fetch usage by model" });
+    }
+  });
+
   // Delete all conversations
   app.delete("/api/conversations", async (_req, res) => {
     try {
@@ -377,6 +434,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!conversationId) {
         res.status(400).json({ error: "conversationId is required" });
         return;
+      }
+
+      // Check budget hard-stop if enabled
+      const settings = await storage.getSettings();
+      if (settings.hardStopAt100 && settings.monthlyBudget) {
+        const monthlyUsage = await storage.getUsageThisMonth();
+        if (monthlyUsage >= settings.monthlyBudget) {
+          res.status(403).json({ 
+            error: "BUDGET_EXCEEDED",
+            message: "Monthly budget exceeded. Adjust your budget in settings to continue."
+          });
+          return;
+        }
       }
 
       // Save user message to database first with parentMessageId
@@ -530,8 +600,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.end();
       });
 
-      // Wait for stream to complete
-      await stream.finalMessage();
+      // Wait for stream to complete and get final message with usage
+      const finalMessage = await stream.finalMessage();
+
+      // Record API usage - try multiple sources to ensure we capture usage
+      try {
+        // Primary source: finalMessage.usage
+        let usage = finalMessage.usage;
+        
+        // Fallback: try stream.totalUsage() if available (some SDK versions)
+        if (!usage || usage.input_tokens === undefined) {
+          const totalUsage = (stream as any).totalUsage?.();
+          if (totalUsage) {
+            usage = totalUsage;
+          }
+        }
+        
+        // Also check current accumulated usage from stream
+        if (!usage || usage.input_tokens === undefined) {
+          const currentUsage = (stream as any).currentUsage?.();
+          if (currentUsage) {
+            usage = currentUsage;
+          }
+        }
+        
+        if (usage && usage.input_tokens !== undefined && usage.output_tokens !== undefined) {
+          const inputTokens = usage.input_tokens;
+          const outputTokens = usage.output_tokens;
+          const costUsd = calculateCost(model, inputTokens, outputTokens);
+          
+          console.log("Recording API usage:", { model, inputTokens, outputTokens, costUsd });
+          
+          await storage.recordApiUsage({
+            model,
+            inputTokens,
+            outputTokens,
+            costUsd,
+            conversationId,
+          });
+        } else {
+          // Log if usage data is missing for debugging
+          console.warn("API usage data missing from response:", { 
+            model, 
+            hasUsage: !!usage,
+            finalMessageKeys: Object.keys(finalMessage),
+            usage
+          });
+        }
+      } catch (usageError) {
+        console.error("Failed to record API usage:", usageError);
+        // Don't fail the request if usage recording fails
+      }
 
       // Save assistant response to database with parentMessageId set to the user message
       // Mark as thread message if in thread context
