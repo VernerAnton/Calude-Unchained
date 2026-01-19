@@ -20,9 +20,9 @@ export default function Chat() {
   const [, params] = useRoute("/chat/:id");
   const [, navigate] = useLocation();
   const conversationId = params?.id ? parseInt(params.id) : null;
-  const { settings } = useSettings();
+  const { settings, isReady } = useSettings();
   
-  const [selectedModel, setSelectedModel] = useState<ModelValue>("claude-sonnet-4-5");
+  const [selectedModel, setSelectedModel] = useState<ModelValue | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
@@ -31,10 +31,12 @@ export default function Chat() {
   const { toast } = useToast();
   
   useEffect(() => {
-    if (settings?.defaultModel) {
+    if (isReady && selectedModel === null && settings?.defaultModel) {
       setSelectedModel(settings.defaultModel as ModelValue);
     }
-  }, [settings?.defaultModel]);
+  }, [isReady, selectedModel, settings?.defaultModel]);
+  
+  const effectiveModel = selectedModel || (settings?.defaultModel as ModelValue) || "claude-sonnet-4-5";
   
   const streamingContentRef = useRef("");
   const rafIdRef = useRef<number | null>(null);
@@ -165,7 +167,7 @@ export default function Chat() {
 
       const requestBody: Record<string, unknown> = {
         message: content,
-        model: selectedModel,
+        model: effectiveModel,
         conversationId: activeConversationId,
         parentMessageId: effectiveParentId,
       };
@@ -431,7 +433,7 @@ export default function Chat() {
             )}
           </div>
           <div className="flex items-center gap-3">
-            <ModelSelector value={selectedModel} onChange={setSelectedModel} />
+            <ModelSelector value={effectiveModel} onChange={setSelectedModel} />
             <ThreadsDropdown
               messages={messages}
               onOpenThread={handleOpenThread}
@@ -486,7 +488,7 @@ export default function Chat() {
             rootMessage={threadRootMessage}
             threadMessages={threadMessages}
             conversationId={conversationId}
-            selectedModel={selectedModel}
+            selectedModel={effectiveModel}
             systemPrompt={conversation?.systemPrompt}
             onClose={handleCloseThread}
           />
