@@ -135,3 +135,22 @@ export const modelOptions = [
 ] as const;
 
 export type ModelValue = typeof modelOptions[number]["value"];
+
+export const settings = pgTable("settings", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  defaultModel: varchar("default_model", { length: 100 }).notNull().default("claude-sonnet-4-5"),
+  theme: varchar("theme", { length: 20 }).notNull().default("system"),
+  autoTitle: boolean("auto_title").notNull().default(true),
+  fontSize: varchar("font_size", { length: 20 }).notNull().default("medium"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertSettingsSchema = z.object({
+  defaultModel: z.enum(["claude-opus-4-20250514", "claude-sonnet-4-5", "claude-haiku-4-5"]).optional(),
+  theme: z.enum(["system", "light", "dark"]).optional(),
+  autoTitle: z.boolean().optional(),
+  fontSize: z.enum(["small", "medium", "large"]).optional(),
+});
+
+export type InsertSettings = z.infer<typeof insertSettingsSchema>;
+export type Settings = typeof settings.$inferSelect;

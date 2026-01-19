@@ -10,11 +10,14 @@ import {
   type InsertProjectFile,
   type MessageFile,
   type InsertMessageFile,
+  type Settings,
+  type InsertSettings,
   conversations, 
   messages,
   projects,
   projectFiles,
-  messageFiles
+  messageFiles,
+  settings
 } from "@shared/schema";
 import { eq, desc, isNull, inArray } from "drizzle-orm";
 
@@ -51,6 +54,13 @@ export interface IStorage {
   getMessageFilesForMessages(messageIds: number[]): Promise<MessageFile[]>;
   createMessageFile(file: InsertMessageFile): Promise<MessageFile>;
   deleteMessageFile(id: number): Promise<void>;
+  
+  // Settings
+  getSettings(): Promise<Settings>;
+  updateSettings(updates: InsertSettings): Promise<Settings>;
+  
+  // Bulk operations
+  deleteAllConversations(): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -193,6 +203,31 @@ export class DbStorage implements IStorage {
 
   async deleteMessageFile(id: number): Promise<void> {
     await db.delete(messageFiles).where(eq(messageFiles.id, id));
+  }
+
+  // Settings
+  async getSettings(): Promise<Settings> {
+    const result = await db.select().from(settings).limit(1);
+    if (result[0]) {
+      return result[0];
+    }
+    const newSettings = await db.insert(settings).values({}).returning();
+    return newSettings[0];
+  }
+
+  async updateSettings(updates: InsertSettings): Promise<Settings> {
+    const existing = await this.getSettings();
+    const result = await db
+      .update(settings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(settings.id, existing.id))
+      .returning();
+    return result[0];
+  }
+
+  // Bulk operations
+  async deleteAllConversations(): Promise<void> {
+    await db.delete(conversations);
   }
 }
 
