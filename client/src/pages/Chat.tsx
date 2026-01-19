@@ -14,11 +14,13 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getActivePath, getSiblings, getThreadMessages, normalizeParentId, type BranchSelection } from "@/lib/messageTree";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { useSettings } from "@/contexts/SettingsContext";
 
 export default function Chat() {
   const [, params] = useRoute("/chat/:id");
   const [, navigate] = useLocation();
   const conversationId = params?.id ? parseInt(params.id) : null;
+  const { settings } = useSettings();
   
   const [selectedModel, setSelectedModel] = useState<ModelValue>("claude-sonnet-4-5");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -27,6 +29,12 @@ export default function Chat() {
   const [branchSelections, setBranchSelections] = useState<BranchSelection>({});
   const [threadRootId, setThreadRootId] = useState<number | null>(null);
   const { toast } = useToast();
+  
+  useEffect(() => {
+    if (settings?.defaultModel) {
+      setSelectedModel(settings.defaultModel as ModelValue);
+    }
+  }, [settings?.defaultModel]);
   
   const streamingContentRef = useRef("");
   const rafIdRef = useRef<number | null>(null);

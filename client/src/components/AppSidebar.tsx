@@ -432,6 +432,15 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t-2 border-border">
+        <button
+          onClick={() => navigate("/settings")}
+          className="w-full border-2 border-border bg-card text-card-foreground px-4 py-2 font-bold uppercase tracking-wider transition-all hover-elevate active-elevate-2 shadow-md flex items-center justify-center gap-2 mb-3"
+          style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}
+          data-testid="button-settings"
+        >
+          <Settings className="h-4 w-4" />
+          SETTINGS
+        </button>
         <div className="text-xs text-muted-foreground text-center">
           Powered by Claude AI
         </div>
