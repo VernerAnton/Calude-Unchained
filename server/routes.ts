@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { anthropic } from "./anthropic";
-import { chatRequestSchema, insertConversationSchema, insertMessageSchema, insertProjectSchema, type FileAttachment } from "@shared/schema";
+import { chatRequestSchema, insertConversationSchema, insertMessageSchema, insertProjectSchema, insertSettingsSchema, type FileAttachment } from "@shared/schema";
 import { storage } from "./storage";
 import { z } from "zod";
 import multer from "multer";
@@ -319,6 +319,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching message files:", error);
       res.status(500).json({ error: "Failed to fetch message files" });
+    }
+  });
+
+  // Settings
+  app.get("/api/settings", async (_req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  app.patch("/api/settings", async (req, res) => {
+    try {
+      const validatedData = insertSettingsSchema.parse(req.body);
+      const settings = await storage.updateSettings(validatedData);
+      res.json(settings);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      console.error("Error updating settings:", error);
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  // Delete all conversations
+  app.delete("/api/conversations", async (_req, res) => {
+    try {
+      await storage.deleteAllConversations();
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting all conversations:", error);
+      res.status(500).json({ error: "Failed to delete all conversations" });
     }
   });
 
