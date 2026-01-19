@@ -27,17 +27,22 @@ export function useSettings() {
 
 function applyTheme(theme: string) {
   const root = document.documentElement;
+  const body = document.body;
   
   if (theme === "dark") {
     root.classList.add("dark");
+    body.classList.add("dark");
   } else if (theme === "light") {
     root.classList.remove("dark");
+    body.classList.remove("dark");
   } else {
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     if (prefersDark) {
       root.classList.add("dark");
+      body.classList.add("dark");
     } else {
       root.classList.remove("dark");
+      body.classList.remove("dark");
     }
   }
 }
@@ -73,10 +78,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = (e: MediaQueryListEvent) => {
       const root = document.documentElement;
+      const body = document.body;
       if (e.matches) {
         root.classList.add("dark");
+        body.classList.add("dark");
       } else {
         root.classList.remove("dark");
+        body.classList.remove("dark");
       }
     };
 
