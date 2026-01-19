@@ -15,6 +15,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getActivePath, getSiblings, getThreadMessages, normalizeParentId, type BranchSelection } from "@/lib/messageTree";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useSettings } from "@/contexts/SettingsContext";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 export default function Chat() {
   const [, params] = useRoute("/chat/:id");
@@ -413,8 +414,9 @@ export default function Chat() {
   const mainContent = (
     <div className="h-full w-full flex flex-col">
       <div className="w-full flex flex-col h-full">
-        <div className="border-b-2 border-border px-6 py-3 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-4">
+        <div className="border-b-2 border-border px-4 py-3 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
             {conversation?.title ? (
               <EditableChatTitle
                 title={conversation.title}

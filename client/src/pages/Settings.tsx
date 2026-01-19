@@ -3,7 +3,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Settings as SettingsIcon, ChevronLeft, Monitor, Sun, Moon, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,6 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { type Settings, modelOptions } from "@shared/schema";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 export default function SettingsPage() {
   const [, navigate] = useLocation();
@@ -78,25 +78,27 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="max-w-2xl mx-auto p-6">
-        <div className="flex items-center gap-4 mb-8">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/")}
-            data-testid="button-back"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex items-center gap-3">
-            <SettingsIcon className="h-6 w-6" />
-            <h1 className="font-mono text-2xl uppercase tracking-wider font-bold">Settings</h1>
-          </div>
+    <div className="h-full flex flex-col">
+      <div className="border-b-2 border-border px-4 py-3 flex items-center gap-3 flex-shrink-0">
+        <SidebarTrigger data-testid="button-sidebar-toggle" />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/")}
+          data-testid="button-back"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+        <div className="flex items-center gap-3">
+          <SettingsIcon className="h-6 w-6" />
+          <h1 className="font-mono text-2xl uppercase tracking-wider font-bold">Settings</h1>
         </div>
+      </div>
+      <div className="flex-1 overflow-auto">
+      <div className="max-w-2xl mx-auto p-6">
 
         <div className="space-y-6">
-          <Card className="p-6">
+          <div className="border-2 border-border p-6" style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}>
             <h2 className="font-mono text-sm uppercase tracking-wider font-bold mb-4 text-muted-foreground">
               [ Default Model ]
             </h2>
@@ -121,9 +123,9 @@ export default function SettingsPage() {
                 </SelectContent>
               </Select>
             </div>
-          </Card>
+          </div>
 
-          <Card className="p-6">
+          <div className="border-2 border-border p-6" style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}>
             <h2 className="font-mono text-sm uppercase tracking-wider font-bold mb-4 text-muted-foreground">
               [ Theme ]
             </h2>
@@ -161,9 +163,9 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </div>
-          </Card>
+          </div>
 
-          <Card className="p-6">
+          <div className="border-2 border-border p-6" style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}>
             <h2 className="font-mono text-sm uppercase tracking-wider font-bold mb-4 text-muted-foreground">
               [ Auto Title ]
             </h2>
@@ -183,9 +185,9 @@ export default function SettingsPage() {
                 data-testid="switch-auto-title"
               />
             </div>
-          </Card>
+          </div>
 
-          <Card className="p-6">
+          <div className="border-2 border-border p-6" style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}>
             <h2 className="font-mono text-sm uppercase tracking-wider font-bold mb-4 text-muted-foreground">
               [ Font Size ]
             </h2>
@@ -220,9 +222,9 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </div>
-          </Card>
+          </div>
 
-          <Card className="p-6 border-destructive/50">
+          <div className="border-2 border-destructive/50 p-6" style={{ boxShadow: "4px 4px 0px hsl(var(--destructive) / 0.5)" }}>
             <h2 className="font-mono text-sm uppercase tracking-wider font-bold mb-4 text-destructive">
               [ Danger Zone ]
             </h2>
@@ -267,8 +269,9 @@ export default function SettingsPage() {
                 </AlertDialogContent>
               </AlertDialog>
             </div>
-          </Card>
+          </div>
         </div>
+      </div>
       </div>
     </div>
   );

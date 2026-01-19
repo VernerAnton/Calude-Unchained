@@ -129,7 +129,7 @@ export const chatRequestSchema = z.object({
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
 
 export const modelOptions = [
-  { label: "Claude 4.1 Opus", value: "claude-opus-4-20250514" },
+  { label: "Claude 4.5 Opus", value: "claude-opus-4-20250514" },
   { label: "Claude 4.5 Sonnet", value: "claude-sonnet-4-5" },
   { label: "Claude 4.5 Haiku", value: "claude-haiku-4-5" },
 ] as const;
