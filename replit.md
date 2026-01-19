@@ -37,6 +37,8 @@ The application features a professional, modern design with a distinctive "old t
 - File attachment support for images, PDFs, and text/code files, processed intelligently for Claude.
 - Branch navigation and isolated thread conversations for complex discussions.
 - Rich text rendering of Claude responses with Markdown support (bold, italic, code, lists, headers).
+- **API Usage Tracking**: Comprehensive cost monitoring with per-request token tracking, USD cost calculation using Anthropic's pricing, daily and monthly breakdowns, 30-day usage graphs, and per-model cost analysis.
+- **Budget Management**: Configurable monthly budget limits with optional 80% warning thresholds (toast notifications) and 100% hard-stops that block API calls when exceeded.
 
 ### System Design Choices
 - **Schema-first architecture**: Ensures type safety across frontend and backend.
