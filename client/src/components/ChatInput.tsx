@@ -195,18 +195,6 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
 
   return (
     <div className="space-y-3">
-      {usage && (usage.today > 0 || usage.thisMonth > 0) && (
-        <div className="flex justify-end" data-testid="usage-widget">
-          <div className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
-            Today: {formatCurrency(usage.today, currency)} | Month: {formatCurrency(usage.thisMonth, currency)}
-            {usage.monthlyBudget && (
-              <span className={usage.thisMonth >= usage.monthlyBudget * 0.8 ? " text-destructive" : ""}>
-                {" "}/ {formatCurrency(usage.monthlyBudget, currency)}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
       {pendingFiles.length > 0 && (
         <div className="flex flex-wrap gap-2" data-testid={`${testIdPrefix}file-previews`}>
           {pendingFiles.map((pf, index) => (
@@ -276,16 +264,31 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
           }}
           data-testid={`${testIdPrefix}input-message`}
         />
-        <button
-          type="submit"
-          disabled={disabled || (!message.trim() && pendingFiles.length === 0)}
-          className="border-2 border-border bg-card text-card-foreground px-6 font-bold uppercase tracking-wider transition-all hover-elevate active-elevate-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed self-end"
-          style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}
-          data-testid={`${testIdPrefix}button-send`}
-        >
-          <span className="hidden sm:inline">▌ SEND</span>
-          <span className="sm:hidden">▌</span>
-        </button>
+        <div className="flex flex-col items-end justify-end gap-1">
+          {usage && (usage.today > 0 || usage.thisMonth > 0) && (
+            <div className="font-mono text-xs text-muted-foreground text-right whitespace-nowrap" data-testid="usage-widget">
+              <div>Today: {formatCurrency(usage.today, currency)}</div>
+              <div>
+                Month: {formatCurrency(usage.thisMonth, currency)}
+                {usage.monthlyBudget && (
+                  <span className={usage.thisMonth >= usage.monthlyBudget * 0.8 ? " text-destructive" : ""}>
+                    /{formatCurrency(usage.monthlyBudget, currency)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={disabled || (!message.trim() && pendingFiles.length === 0)}
+            className="border-2 border-border bg-card text-card-foreground px-6 font-bold uppercase tracking-wider transition-all hover-elevate active-elevate-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ boxShadow: "4px 4px 0px hsl(var(--border))", height: "60px" }}
+            data-testid={`${testIdPrefix}button-send`}
+          >
+            <span className="hidden sm:inline">▌ SEND</span>
+            <span className="sm:hidden">▌</span>
+          </button>
+        </div>
       </form>
     </div>
   );
