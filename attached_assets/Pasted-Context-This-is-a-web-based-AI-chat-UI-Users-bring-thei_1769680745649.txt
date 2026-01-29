@@ -1,0 +1,62 @@
+Context:
+This is a web-based AI chat UI. Users bring their own Anthropic API key and pay Anthropic directly. There is NO billing, budget, or limits in our app. We only track usage locally to inform the user.
+
+Goal:
+Implement a compact “Usage Intensity” indicator near the SEND button that shows:
+Low / Medium / High / Very High
+
+This indicator must NOT shrink the message input and must not look like a button.
+
+Visual Style:
+- Same background as the site (no fill contrast)
+- Same font family as SEND
+- Same width as SEND
+- No shadow, no pressed/hover button styling
+- Border + text color only
+- Colors by state:
+  - Low: green
+  - Medium: yellow
+  - High: red
+  - Very High: purple (rare)
+- Text inside:
+  - Prefer: “Usage: Low”
+  - If space is tight: “Low”
+
+Layout:
+- Place the usage indicator above the SEND button in the right control column
+- Total height (usage + send) must not exceed the message box height
+- Use flex column layout so it fits naturally
+- Cursor should NOT indicate a clickable button
+
+Interaction:
+- Hover (desktop) / tap (mobile) opens a small tooltip/popover showing:
+  - Today: total tokens + estimated $
+  - This month: total tokens + estimated $
+- Numbers live in the tooltip, not in the main chip
+
+Data & Logic:
+- Track usage client-side only (localStorage or IndexedDB)
+- Record per assistant response:
+  - timestamp
+  - model
+  - tokens_in, tokens_out (from Anthropic usage fields)
+  - estimated cost (using a pricing map per model)
+
+Intensity Logic (no budgets):
+- Classify usage RELATIVE TO THE USER’S OWN RECENT ACTIVITY
+- Build a rolling baseline from the last 7 ACTIVE days (not calendar days)
+- Use median (not average) of daily usage to avoid spikes
+- Compare current session intensity to baseline:
+  - Low: < 0.7 × baseline
+  - Medium: 0.7–1.3 × baseline
+  - High: 1.3–2.5 × baseline
+  - Very High: > 2.5 × baseline
+- Update the label only after a response completes (no flicker while typing)
+
+Cold Start:
+- If there isn’t enough history, show:
+  “Learning…”
+- Tooltip: “Usage levels adapt after a few active sessions.”
+
+Deliverable:
+Implement the usage store, intensity calculation, and the UI component so the indicator updates automatically after each assistant response and stays calm, stable, and informative.
