@@ -350,11 +350,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API Usage endpoints
   app.get("/api/usage/summary", async (_req, res) => {
     try {
-      const [today, thisMonth, last7Days, settings] = await Promise.all([
+      const [today, thisMonth, last7Days] = await Promise.all([
         storage.getUsageToday(),
         storage.getUsageThisMonth(),
         storage.getUsageLast7Days(),
-        storage.getSettings(),
       ]);
       
       // Calculate projected month-end based on 7-day trailing average
@@ -370,14 +369,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
         thisMonth,
         last7Days,
         projectedMonthEnd,
-        monthlyBudget: settings.monthlyBudget,
-        currency: settings.currency,
-        warnAt80: settings.warnAt80,
-        hardStopAt100: settings.hardStopAt100,
       });
     } catch (error) {
       console.error("Error fetching usage summary:", error);
       res.status(500).json({ error: "Failed to fetch usage summary" });
+    }
+  });
+
+  app.get("/api/usage/intensity", async (_req, res) => {
+    try {
+      const [todayUsage, activeDaysUsage] = await Promise.all([
+        storage.getUsageToday(),
+        storage.getActiveDaysUsage(7),
+      ]);
+      
+      const activeDays = activeDaysUsage.filter(cost => cost > 0);
+      
+      if (activeDays.length < 3) {
+        res.json({
+          level: "learning",
+          label: "Learning...",
+          todayCost: todayUsage,
+          thisMonthCost: await storage.getUsageThisMonth(),
+        });
+        return;
+      }
+      
+      const sortedDays = [...activeDays].sort((a, b) => a - b);
+      const midIndex = Math.floor(sortedDays.length / 2);
+      const medianBaseline = sortedDays.length % 2 === 0
+        ? (sortedDays[midIndex - 1] + sortedDays[midIndex]) / 2
+        : sortedDays[midIndex];
+      
+      let level: string;
+      let label: string;
+      
+      if (medianBaseline === 0) {
+        level = "low";
+        label = "Usage: Low";
+      } else {
+        const ratio = todayUsage / medianBaseline;
+        
+        if (ratio < 0.7) {
+          level = "low";
+          label = "Usage: Low";
+        } else if (ratio < 1.3) {
+          level = "medium";
+          label = "Usage: Medium";
+        } else if (ratio < 2.5) {
+          level = "high";
+          label = "Usage: High";
+        } else {
+          level = "veryHigh";
+          label = "Usage: Very High";
+        }
+      }
+      
+      res.json({
+        level,
+        label,
+        todayCost: todayUsage,
+        thisMonthCost: await storage.getUsageThisMonth(),
+      });
+    } catch (error) {
+      console.error("Error fetching usage intensity:", error);
+      res.status(500).json({ error: "Failed to fetch usage intensity" });
     }
   });
 
@@ -434,19 +490,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!conversationId) {
         res.status(400).json({ error: "conversationId is required" });
         return;
-      }
-
-      // Check budget hard-stop if enabled
-      const settings = await storage.getSettings();
-      if (settings.hardStopAt100 && settings.monthlyBudget) {
-        const monthlyUsage = await storage.getUsageThisMonth();
-        if (monthlyUsage >= settings.monthlyBudget) {
-          res.status(403).json({ 
-            error: "BUDGET_EXCEEDED",
-            message: "Monthly budget exceeded. Adjust your budget in settings to continue."
-          });
-          return;
-        }
       }
 
       // Save user message to database first with parentMessageId

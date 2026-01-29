@@ -69,6 +69,7 @@ export interface IStorage {
   getUsageLast7Days(): Promise<number>;
   getDailyUsage(days: number): Promise<{ date: string; cost: number }[]>;
   getUsageByModel(startDate: Date): Promise<{ model: string; cost: number }[]>;
+  getActiveDaysUsage(numDays: number): Promise<number[]>;
   
   // Bulk operations
   deleteAllConversations(): Promise<void>;
@@ -301,6 +302,20 @@ export class DbStorage implements IStorage {
       .groupBy(apiUsage.model);
     
     return result.map(r => ({ model: r.model, cost: Number(r.cost) }));
+  }
+
+  async getActiveDaysUsage(numDays: number): Promise<number[]> {
+    const result = await db
+      .select({
+        date: sql<string>`DATE(${apiUsage.createdAt})`,
+        cost: sql<number>`COALESCE(SUM(${apiUsage.costUsd}), 0)`
+      })
+      .from(apiUsage)
+      .groupBy(sql`DATE(${apiUsage.createdAt})`)
+      .orderBy(desc(sql`DATE(${apiUsage.createdAt})`))
+      .limit(numDays);
+    
+    return result.map(r => Number(r.cost));
   }
 
   // Bulk operations

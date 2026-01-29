@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { BarChart3, ChevronLeft, TrendingUp, Calendar, DollarSign, AlertTriangle } from "lucide-react";
+import { BarChart3, ChevronLeft, TrendingUp, Calendar, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { modelOptions } from "@shared/schema";
@@ -10,10 +10,6 @@ interface UsageSummary {
   thisMonth: number;
   last7Days: number;
   projectedMonthEnd: number;
-  monthlyBudget: number | null;
-  currency: string;
-  warnAt80: boolean;
-  hardStopAt100: boolean;
 }
 
 interface DailyUsage {
@@ -26,10 +22,10 @@ interface ModelUsage {
   cost: number;
 }
 
-function formatCurrency(amount: number, currency: string = "USD"): string {
+function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency,
+    currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 4,
   }).format(amount);
@@ -54,13 +50,6 @@ export default function UsagePage() {
   const { data: modelUsage } = useQuery<ModelUsage[]>({
     queryKey: ["/api/usage/by-model"],
   });
-
-  const currency = summary?.currency || "USD";
-  const budgetPercent = summary?.monthlyBudget 
-    ? (summary.thisMonth / summary.monthlyBudget) * 100 
-    : 0;
-  const isOverBudget = budgetPercent >= 100;
-  const isWarning = budgetPercent >= 80 && budgetPercent < 100;
 
   const maxDailyCost = dailyUsage?.length 
     ? Math.max(...dailyUsage.map(d => d.cost), 0.001) 
@@ -102,7 +91,7 @@ export default function UsagePage() {
                   <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Today</span>
                 </div>
                 <div className="font-mono text-2xl font-bold" data-testid="text-today-cost">
-                  {formatCurrency(summary?.today || 0, currency)}
+                  {formatCurrency(summary?.today || 0)}
                 </div>
               </div>
 
@@ -112,22 +101,8 @@ export default function UsagePage() {
                   <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">This Month</span>
                 </div>
                 <div className="font-mono text-2xl font-bold" data-testid="text-month-cost">
-                  {formatCurrency(summary?.thisMonth || 0, currency)}
+                  {formatCurrency(summary?.thisMonth || 0)}
                 </div>
-                {summary?.monthlyBudget && (
-                  <div className="mt-2">
-                    <div className="flex justify-between text-xs font-mono text-muted-foreground mb-1">
-                      <span>{budgetPercent.toFixed(1)}%</span>
-                      <span>of {formatCurrency(summary.monthlyBudget, currency)}</span>
-                    </div>
-                    <div className="h-2 bg-muted border border-border">
-                      <div 
-                        className={`h-full transition-all ${isOverBudget ? 'bg-destructive' : isWarning ? 'bg-yellow-500' : 'bg-foreground'}`}
-                        style={{ width: `${Math.min(budgetPercent, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div className="border-2 border-border p-4" style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}>
@@ -136,14 +111,8 @@ export default function UsagePage() {
                   <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Projected Month-End</span>
                 </div>
                 <div className="font-mono text-2xl font-bold" data-testid="text-projected-cost">
-                  {formatCurrency(summary?.projectedMonthEnd || 0, currency)}
+                  {formatCurrency(summary?.projectedMonthEnd || 0)}
                 </div>
-                {summary?.monthlyBudget && summary.projectedMonthEnd > summary.monthlyBudget && (
-                  <div className="flex items-center gap-1 mt-2 text-destructive">
-                    <AlertTriangle className="h-3 w-3" />
-                    <span className="font-mono text-xs uppercase">Over budget</span>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -171,7 +140,7 @@ export default function UsagePage() {
                           key={dateStr}
                           className="flex-1 bg-foreground hover:bg-foreground/80 transition-colors min-h-[2px]"
                           style={{ height: `${Math.max(heightPercent, 2)}%` }}
-                          title={`${dateStr}: ${formatCurrency(cost, currency)}`}
+                          title={`${dateStr}: ${formatCurrency(cost)}`}
                         />
                       );
                     })}
@@ -198,7 +167,7 @@ export default function UsagePage() {
                     <div key={usage.model} className="flex justify-between items-center">
                       <span className="font-mono text-sm">{getModelLabel(usage.model)}</span>
                       <span className="font-mono text-sm font-bold" data-testid={`text-model-${usage.model}`}>
-                        {formatCurrency(usage.cost, currency)}
+                        {formatCurrency(usage.cost)}
                       </span>
                     </div>
                   ))}

@@ -142,10 +142,6 @@ export const settings = pgTable("settings", {
   theme: varchar("theme", { length: 20 }).notNull().default("system"),
   autoTitle: boolean("auto_title").notNull().default(true),
   fontSize: varchar("font_size", { length: 20 }).notNull().default("medium"),
-  monthlyBudget: real("monthly_budget"),
-  warnAt80: boolean("warn_at_80").notNull().default(true),
-  hardStopAt100: boolean("hard_stop_at_100").notNull().default(false),
-  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
@@ -164,9 +160,6 @@ export const insertSettingsSchema = z.object({
   theme: z.enum(["system", "light", "dark"]).optional(),
   autoTitle: z.boolean().optional(),
   fontSize: z.enum(["small", "medium", "large"]).optional(),
-  monthlyBudget: z.number().nullable().optional(),
-  warnAt80: z.boolean().optional(),
-  hardStopAt100: z.boolean().optional(),
 });
 
 export type InsertSettings = z.infer<typeof insertSettingsSchema>;

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Paperclip, X, File, Image, FileText, FileCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { FileAttachment } from "@shared/schema";
 
 const ACCEPTED_FILE_TYPES = {
@@ -37,28 +38,44 @@ interface PendingFile {
   base64?: string;
 }
 
-interface UsageSummary {
-  today: number;
-  thisMonth: number;
-  monthlyBudget: number | null;
-  currency: string;
+interface UsageIntensity {
+  level: "learning" | "low" | "medium" | "high" | "veryHigh";
+  label: string;
+  todayCost: number;
+  thisMonthCost: number;
 }
 
-function formatCurrency(amount: number, currency: string = "USD"): string {
+function formatCurrency(amount: number): string {
   if (amount < 0.01) {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency,
+      currency: "USD",
       minimumFractionDigits: 4,
       maximumFractionDigits: 4,
     }).format(amount);
   }
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency,
+    currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+function getIntensityColor(level: string): { border: string; text: string } {
+  switch (level) {
+    case "low":
+      return { border: "border-green-500", text: "text-green-500" };
+    case "medium":
+      return { border: "border-yellow-500", text: "text-yellow-500" };
+    case "high":
+      return { border: "border-red-500", text: "text-red-500" };
+    case "veryHigh":
+      return { border: "border-purple-500", text: "text-purple-500" };
+    case "learning":
+    default:
+      return { border: "border-muted-foreground", text: "text-muted-foreground" };
+  }
 }
 
 function getFileIcon(mimeType: string) {
@@ -85,8 +102,8 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastInitialValueRef = useRef(initialValue);
 
-  const { data: usage } = useQuery<UsageSummary>({
-    queryKey: ["/api/usage/summary"],
+  const { data: intensity } = useQuery<UsageIntensity>({
+    queryKey: ["/api/usage/intensity"],
     refetchInterval: 30000,
   });
 
@@ -191,7 +208,8 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
     }
   };
 
-  const currency = usage?.currency || "USD";
+  const colors = intensity ? getIntensityColor(intensity.level) : getIntensityColor("learning");
+  const showIntensity = intensity && (intensity.todayCost > 0 || intensity.thisMonthCost > 0 || intensity.level === "learning");
 
   return (
     <div className="space-y-3">
@@ -265,18 +283,27 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
           data-testid={`${testIdPrefix}input-message`}
         />
         <div className="flex flex-col items-end justify-end gap-1">
-          {usage && (usage.today > 0 || usage.thisMonth > 0) && (
-            <div className="font-mono text-xs text-muted-foreground text-right whitespace-nowrap" data-testid="usage-widget">
-              <div>Today: {formatCurrency(usage.today, currency)}</div>
-              <div>
-                Month: {formatCurrency(usage.thisMonth, currency)}
-                {usage.monthlyBudget && (
-                  <span className={usage.thisMonth >= usage.monthlyBudget * 0.8 ? " text-destructive" : ""}>
-                    /{formatCurrency(usage.monthlyBudget, currency)}
-                  </span>
+          {showIntensity && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div 
+                  className={`font-mono text-xs uppercase tracking-wider px-3 py-1.5 border-2 ${colors.border} ${colors.text} bg-transparent cursor-default whitespace-nowrap`}
+                  data-testid="usage-intensity-chip"
+                >
+                  {intensity.level === "learning" ? "Learning..." : intensity.label.replace("Usage: ", "")}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="font-mono text-xs">
+                {intensity.level === "learning" ? (
+                  <p>Usage levels adapt after a few active sessions.</p>
+                ) : (
+                  <div className="space-y-1">
+                    <div>Today: {formatCurrency(intensity.todayCost)}</div>
+                    <div>This month: {formatCurrency(intensity.thisMonthCost)}</div>
+                  </div>
                 )}
-              </div>
-            </div>
+              </TooltipContent>
+            </Tooltip>
           )}
           <button
             type="submit"
