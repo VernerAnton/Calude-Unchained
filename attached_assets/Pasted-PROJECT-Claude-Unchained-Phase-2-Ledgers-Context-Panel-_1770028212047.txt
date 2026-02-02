@@ -1,0 +1,58 @@
+PROJECT: Claude Unchained - Phase 2: Ledgers & Context Panel
+
+CONTEXT:
+- Database schema for Ledgers plan is good, keep that.
+- We need to implement the FRONTEND UI.
+- DESIGN CHANGE: The Chat Input area needs a layout overhaul to accommodate the new "Context" trigger.
+
+GOAL:
+1. Implement the "Project Context" panel (Right Sidebar).
+2. Redesign `ChatInput.tsx` to have "Stacked Control Columns" on the left and right of the textarea.
+
+=========================================
+1. FRONTEND COMPONENTS
+=========================================
+
+A. Create `client/src/components/ContextPanel.tsx`
+- **Right-Side Sidebar:** Uses `ResizablePanel` (hidden by default).
+- **Tabs:** Use Radix UI Tabs.
+  - **Tab 1: Ledgers:** List existing ledgers. Include "+ New Ledger" button. Clicking opens edit mode.
+  - **Tab 2: Files:** List files in the current thread/project. Include "Download" buttons.
+
+B. Update `client/src/pages/Chat.tsx`
+- Add state: `isContextPanelOpen` (boolean).
+- Layout: [Sidebar (Threads)] - [Chat Area] - [Context Panel].
+- Pass `setIsContextPanelOpen` to the `ChatInput` component.
+
+C. REDESIGN `client/src/components/ChatInput.tsx` (Critical Layout Change)
+- **Container:** Flex container aligning items at the bottom.
+- **Left Column (Inputs):**
+  - A vertical flex column (`flex-col`) to the left of the textarea.
+  - **Top Button:** "Project Context" (Icon: `Library` or `Book` from lucide-react). Toggles the right panel.
+  - **Bottom Button:** "Attach File" (Icon: `Paperclip`). Existing functionality.
+- **Center:**
+  - The `Textarea` (Autosizing).
+  - It should align cleanly with the buttons.
+- **Right Column (Actions):**
+  - A vertical flex column to the right of the textarea.
+  - **Bottom Button:** "Send Message" (Icon: `ArrowUp` or `Send`).
+  - **Top Button:** (Optional/Placeholder) If we have a "Stop" button or "Model Settings" trigger, place it here to maintain symmetry. Otherwise, leave empty.
+- **Visuals:** Ensure the "Stacked Buttons" look deliberate—use the same size/shape for all side buttons (square icon buttons).
+
+=========================================
+2. DATA INTEGRATION
+=========================================
+- In `ContextPanel.tsx`, use `useQuery` to fetch `/api/ledgers`.
+- Wire up the "Project Context" button in `ChatInput` to strictly toggle the `isContextPanelOpen` state in `Chat.tsx`.
+
+=========================================
+3. STYLE & BEHAVIOR
+=========================================
+- Maintain the app's "Vintage/Typewriter" aesthetic (borders, mono fonts).
+- The "Project Context" panel should slide in or resize the main chat window smoothly.
+- Ensure the input box grows upwards as the user types, while the side buttons stay anchored to the bottom.
+
+=========================================
+ACTIONABLE NEXT STEP
+=========================================
+Build the `ContextPanel` component and refactor the `ChatInput` layout to match the "Stacked Columns" design.

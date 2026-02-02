@@ -1,0 +1,195 @@
+PROJECT: Claude Unchained (existing app)
+
+CONTEXT:
+- Threads already exist.
+- Daily/monthly cost tracking is already implemented.
+- Next feature to build: LEDGERS (Canvas-like) — persistent, editable, versioned documents attached to a session/thread.
+- IMPORTANT: Do NOT implement “Promote to App” yet.
+  We are only building Ledgers now, but the data model must allow promotion later.
+
+GOAL:
+Add a persistent “Ledger” feature similar to Claude Artifacts / ChatGPT Canvas:
+- Separate UI area from the chat stream
+- Ledgers persist across sessions (stored in DB)
+- Ledgers are editable and versioned
+- Ledgers can be generated from a thread
+- Later we will add “Promote to App,” so Ledgers must be stored as structured objects (type + content + metadata)
+
+========================================================
+FEATURE: LEDGERS (Canvas-style)
+========================================================
+
+A) PRODUCT REQUIREMENTS
+
+1) Ledger Types (initial set):
+   - Report
+   - Plan
+   - Checklist
+   - Draft
+   - Notes
+   - Code  (IMPORTANT: code ledgers must be safely stored for later app promotion)
+
+2) Ledger Ownership & Scope
+   - Each ledger belongs to a user_id
+   - Each ledger can optionally be linked to:
+     - session_id (project/workspace)
+     - thread_id (origin thread)
+   - Ledgers must be accessible later even if the thread is closed
+
+3) Core Actions
+   - Create ledger manually
+   - Edit ledger content
+   - Rename ledger
+   - Change ledger type
+   - Generate ledger from a thread (Claude writes first version)
+   - Update ledger from a thread → MUST CREATE A NEW VERSION (v2, v3...) NEVER overwrite
+   - View version history
+   - Restore an older version as the current version (this creates a new version copy)
+
+4) Export
+   - Export ledger as Markdown
+   - (PDF export is NOT required now)
+
+5) UI / UX
+   - Add a persistent Ledgers panel:
+     - Left: ledger list (filter by session / thread / all)
+     - Center/right: selected ledger editor
+     - Right sidebar: version history + metadata
+   - Ledgers must feel like “Canvas”: editable independently of chat
+
+========================================================
+B) DATA MODEL (DB)
+========================================================
+Create these tables/collections (use Supabase Postgres if available, otherwise SQLite):
+
+1) ledgers
+- id (uuid)
+- user_id
+- title (text)
+- type (text enum)
+- origin_session_id (nullable)
+- origin_thread_id (nullable)
+- created_at
+- updated_at
+- current_version_id (nullable)
+- metadata_json (jsonb)
+  // IMPORTANT: metadata_json is REQUIRED for future “Promote to App”
+  // Example: { language: "javascript", runtime: "browser", framework: "react" }
+
+2) ledger_versions
+- id (uuid)
+- ledger_id (uuid, FK)
+- version_number (int)
+- content_markdown (text)
+- created_at
+- created_from_thread_snapshot (jsonb nullable)
+  // Store message IDs or message text for traceability
+
+IMPORTANT RULES:
+- Any “Update from thread” MUST create a new ledger_versions row.
+- Older versions must never be overwritten.
+- current_version_id must always point to the latest active version.
+
+========================================================
+C) BACKEND API
+========================================================
+Implement routes:
+
+- POST /api/ledgers
+  body: { title, type, origin_session_id?, origin_thread_id? }
+
+- GET /api/ledgers?session_id=&thread_id=
+  returns list for sidebar
+
+- GET /api/ledgers/:id
+  returns ledger + versions
+
+- PUT /api/ledgers/:id
+  body: { title?, type?, metadata_json? }
+  updates ledger metadata only
+
+- PUT /api/ledgers/:id/content
+  body: { content_markdown }
+  ALWAYS creates a new version
+
+- POST /api/ledgers/:id/generate-from-thread
+  body: { thread_id, template_type }
+  - Fetch thread messages
+  - Prompt Claude to generate Markdown based on ledger type template
+  - Save as version 1 or next version
+
+- POST /api/ledgers/:id/update-from-thread
+  body: { thread_id }
+  - Fetch thread messages
+  - Prompt Claude to update ledger content
+  - ALWAYS save as a new version
+
+- POST /api/ledgers/:id/export-md
+  returns downloadable Markdown (or raw content)
+
+SECURITY:
+- All routes must require authentication
+- All data must be scoped by user_id
+- No cross-user access under any circumstance
+
+========================================================
+D) LEDGER GENERATION PROMPT TEMPLATES
+========================================================
+
+Report:
+- Summary
+- Key Points
+- Decisions
+- Next Steps
+- Open Questions
+
+Plan:
+- Goal
+- Constraints
+- Step-by-step plan
+- Risks
+- Checklist
+
+Checklist:
+- Grouped checklist items
+- Clear checkboxes (markdown style)
+
+Draft:
+- Clean draft text only
+- No commentary or analysis
+
+Notes:
+- Bullet-point notes
+- Highlights and references
+
+Code:
+- Markdown fenced code blocks
+- Include:
+  - How to run
+  - Assumptions
+- Store language/framework in metadata_json
+- This is REQUIRED for future “Promote to App”
+
+========================================================
+E) ACCEPTANCE CRITERIA
+========================================================
+- Ledgers persist across sessions.
+- Editing a ledger always creates a new version.
+- Version history is visible and restorable.
+- Generate-from-thread creates ledger content correctly.
+- Export Markdown works.
+- No “Promote to App” logic exists yet — data only.
+
+========================================================
+F) DO NOT DO
+========================================================
+- Do NOT implement RAG or deep search.
+- Do NOT implement app promotion yet.
+- Do NOT add agents or automation.
+- Do NOT modify existing Threads or Cost Tracking.
+
+DELIVERABLES:
+- DB schema/migrations
+- Backend API routes
+- Frontend UI components
+- Centralized prompt templates for ledger generation
