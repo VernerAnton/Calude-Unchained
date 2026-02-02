@@ -14,13 +14,20 @@ import {
   type InsertSettings,
   type ApiUsage,
   type InsertApiUsage,
+  type Ledger,
+  type InsertLedger,
+  type UpdateLedger,
+  type LedgerVersion,
+  type InsertLedgerVersion,
   conversations, 
   messages,
   projects,
   projectFiles,
   messageFiles,
   settings,
-  apiUsage
+  apiUsage,
+  ledgers,
+  ledgerVersions
 } from "@shared/schema";
 import { eq, desc, isNull, inArray, gte, and, sql } from "drizzle-orm";
 
@@ -70,6 +77,19 @@ export interface IStorage {
   getDailyUsage(days: number): Promise<{ date: string; cost: number }[]>;
   getUsageByModel(startDate: Date): Promise<{ model: string; cost: number }[]>;
   getActiveDaysUsage(numDays: number): Promise<number[]>;
+  
+  // Ledgers
+  getLedgers(filters?: { projectId?: number; conversationId?: number }): Promise<Ledger[]>;
+  getLedger(id: number): Promise<Ledger | undefined>;
+  createLedger(ledger: InsertLedger): Promise<Ledger>;
+  updateLedger(id: number, updates: UpdateLedger): Promise<Ledger | undefined>;
+  deleteLedger(id: number): Promise<void>;
+  
+  // Ledger Versions
+  getLedgerVersions(ledgerId: number): Promise<LedgerVersion[]>;
+  getLedgerVersion(id: number): Promise<LedgerVersion | undefined>;
+  createLedgerVersion(version: InsertLedgerVersion): Promise<LedgerVersion>;
+  getLatestLedgerVersion(ledgerId: number): Promise<LedgerVersion | undefined>;
   
   // Bulk operations
   deleteAllConversations(): Promise<void>;
@@ -316,6 +336,78 @@ export class DbStorage implements IStorage {
       .limit(numDays);
     
     return result.map(r => Number(r.cost));
+  }
+
+  // Ledgers
+  async getLedgers(filters?: { projectId?: number; conversationId?: number }): Promise<Ledger[]> {
+    let query = db.select().from(ledgers).orderBy(desc(ledgers.updatedAt));
+    
+    if (filters?.projectId) {
+      return await db.select().from(ledgers)
+        .where(eq(ledgers.originProjectId, filters.projectId))
+        .orderBy(desc(ledgers.updatedAt));
+    }
+    if (filters?.conversationId) {
+      return await db.select().from(ledgers)
+        .where(eq(ledgers.originConversationId, filters.conversationId))
+        .orderBy(desc(ledgers.updatedAt));
+    }
+    
+    return await db.select().from(ledgers).orderBy(desc(ledgers.updatedAt));
+  }
+
+  async getLedger(id: number): Promise<Ledger | undefined> {
+    const result = await db.select().from(ledgers).where(eq(ledgers.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createLedger(ledger: InsertLedger): Promise<Ledger> {
+    const result = await db.insert(ledgers).values(ledger).returning();
+    return result[0];
+  }
+
+  async updateLedger(id: number, updates: UpdateLedger): Promise<Ledger | undefined> {
+    const result = await db
+      .update(ledgers)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(ledgers.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteLedger(id: number): Promise<void> {
+    await db.delete(ledgers).where(eq(ledgers.id, id));
+  }
+
+  // Ledger Versions
+  async getLedgerVersions(ledgerId: number): Promise<LedgerVersion[]> {
+    return await db.select().from(ledgerVersions)
+      .where(eq(ledgerVersions.ledgerId, ledgerId))
+      .orderBy(desc(ledgerVersions.versionNumber));
+  }
+
+  async getLedgerVersion(id: number): Promise<LedgerVersion | undefined> {
+    const result = await db.select().from(ledgerVersions).where(eq(ledgerVersions.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createLedgerVersion(version: InsertLedgerVersion): Promise<LedgerVersion> {
+    const result = await db.insert(ledgerVersions).values(version).returning();
+    
+    // Update ledger's currentVersionId and updatedAt
+    await db.update(ledgers)
+      .set({ currentVersionId: result[0].id, updatedAt: new Date() })
+      .where(eq(ledgers.id, version.ledgerId));
+    
+    return result[0];
+  }
+
+  async getLatestLedgerVersion(ledgerId: number): Promise<LedgerVersion | undefined> {
+    const result = await db.select().from(ledgerVersions)
+      .where(eq(ledgerVersions.ledgerId, ledgerId))
+      .orderBy(desc(ledgerVersions.versionNumber))
+      .limit(1);
+    return result[0];
   }
 
   // Bulk operations

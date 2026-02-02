@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Paperclip, X, File, Image, FileText, FileCode } from "lucide-react";
+import { Paperclip, X, File, Image, FileText, FileCode, Library, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -30,6 +30,8 @@ interface ChatInputProps {
   testIdPrefix?: string;
   initialValue?: string;
   onDraftChange?: (draft: string) => void;
+  onToggleContext?: () => void;
+  isContextOpen?: boolean;
 }
 
 interface PendingFile {
@@ -95,7 +97,16 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
-export function ChatInput({ onSend, disabled, placeholder = "Type your message here...", testIdPrefix = "", initialValue = "", onDraftChange }: ChatInputProps) {
+export function ChatInput({ 
+  onSend, 
+  disabled, 
+  placeholder = "Type your message here...", 
+  testIdPrefix = "", 
+  initialValue = "", 
+  onDraftChange,
+  onToggleContext,
+  isContextOpen = false
+}: ChatInputProps) {
   const [message, setMessage] = useState(initialValue);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -245,7 +256,7 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
           ))}
         </div>
       )}
-      <form onSubmit={handleSubmit} className="flex gap-4">
+      <form onSubmit={handleSubmit} className="flex items-end gap-3">
         <input
           ref={fileInputRef}
           type="file"
@@ -255,18 +266,52 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
           className="hidden"
           data-testid={`${testIdPrefix}input-file`}
         />
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled}
-          className="self-end border-2 border-border bg-card h-[60px] w-[60px]"
-          style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}
-          data-testid={`${testIdPrefix}button-attach-file`}
-        >
-          <Paperclip className="w-5 h-5" />
-        </Button>
+        
+        {/* Left column: Context + Attach */}
+        <div className="flex flex-col gap-2">
+          {onToggleContext && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={isContextOpen ? "default" : "ghost"}
+                  onClick={onToggleContext}
+                  disabled={disabled}
+                  className="border-2 border-border bg-card h-[44px] w-[44px]"
+                  style={{ boxShadow: "3px 3px 0px hsl(var(--border))" }}
+                  data-testid={`${testIdPrefix}button-context`}
+                >
+                  <Library className="w-5 h-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="font-mono text-xs">
+                Project Context
+              </TooltipContent>
+            </Tooltip>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={disabled}
+                className="border-2 border-border bg-card h-[44px] w-[44px]"
+                style={{ boxShadow: "3px 3px 0px hsl(var(--border))" }}
+                data-testid={`${testIdPrefix}button-attach-file`}
+              >
+                <Paperclip className="w-5 h-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="font-mono text-xs">
+              Attach File
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* Center: Textarea */}
         <textarea
           ref={textareaRef}
           value={message}
@@ -282,12 +327,14 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
           }}
           data-testid={`${testIdPrefix}input-message`}
         />
-        <div className="flex flex-col items-end justify-end gap-1">
+
+        {/* Right column: Intensity + Send */}
+        <div className="flex flex-col items-end gap-2">
           {showIntensity && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <div 
-                  className={`font-mono text-xs uppercase tracking-wider px-3 py-1.5 border-2 ${colors.border} ${colors.text} bg-transparent cursor-default whitespace-nowrap`}
+                  className={`font-mono text-xs uppercase tracking-wider px-3 py-1.5 border-2 ${colors.border} ${colors.text} bg-transparent cursor-default whitespace-nowrap h-[44px] flex items-center`}
                   data-testid="usage-intensity-chip"
                 >
                   {intensity.level === "learning" ? "Learning..." : intensity.label.replace("Usage: ", "")}
@@ -305,16 +352,22 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
               </TooltipContent>
             </Tooltip>
           )}
-          <button
-            type="submit"
-            disabled={disabled || (!message.trim() && pendingFiles.length === 0)}
-            className="border-2 border-border bg-card text-card-foreground px-6 font-bold uppercase tracking-wider transition-all hover-elevate active-elevate-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{ boxShadow: "4px 4px 0px hsl(var(--border))", height: "60px" }}
-            data-testid={`${testIdPrefix}button-send`}
-          >
-            <span className="hidden sm:inline">▌ SEND</span>
-            <span className="sm:hidden">▌</span>
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="submit"
+                disabled={disabled || (!message.trim() && pendingFiles.length === 0)}
+                className="border-2 border-border bg-card text-card-foreground h-[44px] w-[44px] font-bold uppercase tracking-wider transition-all hover-elevate active-elevate-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center"
+                style={{ boxShadow: "3px 3px 0px hsl(var(--border))" }}
+                data-testid={`${testIdPrefix}button-send`}
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="font-mono text-xs">
+              Send Message
+            </TooltipContent>
+          </Tooltip>
         </div>
       </form>
     </div>

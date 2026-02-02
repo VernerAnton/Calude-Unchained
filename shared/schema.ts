@@ -189,3 +189,57 @@ export function calculateCost(model: string, inputTokens: number, outputTokens: 
   const outputCost = (outputTokens / 1_000_000) * pricing.outputPer1M;
   return inputCost + outputCost;
 }
+
+// Ledger types enum
+export const LEDGER_TYPES = ["report", "plan", "checklist", "draft", "notes", "code"] as const;
+export type LedgerType = typeof LEDGER_TYPES[number];
+
+// Ledgers table - persistent, versioned documents
+export const ledgers = pgTable("ledgers", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  title: varchar("title", { length: 255 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull().default("notes"),
+  originProjectId: integer("origin_project_id").references(() => projects.id, { onDelete: "set null" }),
+  originConversationId: integer("origin_conversation_id").references(() => conversations.id, { onDelete: "set null" }),
+  currentVersionId: integer("current_version_id"),
+  metadataJson: text("metadata_json"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Ledger versions table - immutable version history
+export const ledgerVersions = pgTable("ledger_versions", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  ledgerId: integer("ledger_id").notNull().references(() => ledgers.id, { onDelete: "cascade" }),
+  versionNumber: integer("version_number").notNull(),
+  contentMarkdown: text("content_markdown").notNull(),
+  createdFromThreadSnapshot: text("created_from_thread_snapshot"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertLedgerSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  type: z.enum(LEDGER_TYPES).default("notes"),
+  originProjectId: z.number().optional().nullable(),
+  originConversationId: z.number().optional().nullable(),
+  metadataJson: z.string().optional().nullable(),
+});
+
+export const updateLedgerSchema = z.object({
+  title: z.string().min(1).optional(),
+  type: z.enum(LEDGER_TYPES).optional(),
+  metadataJson: z.string().optional().nullable(),
+});
+
+export const insertLedgerVersionSchema = z.object({
+  ledgerId: z.number(),
+  versionNumber: z.number(),
+  contentMarkdown: z.string(),
+  createdFromThreadSnapshot: z.string().optional().nullable(),
+});
+
+export type InsertLedger = z.infer<typeof insertLedgerSchema>;
+export type Ledger = typeof ledgers.$inferSelect;
+export type UpdateLedger = z.infer<typeof updateLedgerSchema>;
+export type InsertLedgerVersion = z.infer<typeof insertLedgerVersionSchema>;
+export type LedgerVersion = typeof ledgerVersions.$inferSelect;

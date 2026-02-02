@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { anthropic } from "./anthropic";
-import { chatRequestSchema, insertConversationSchema, insertMessageSchema, insertProjectSchema, insertSettingsSchema, type FileAttachment, calculateCost } from "@shared/schema";
+import { chatRequestSchema, insertConversationSchema, insertMessageSchema, insertProjectSchema, insertSettingsSchema, insertLedgerSchema, updateLedgerSchema, type FileAttachment, calculateCost, LEDGER_TYPES } from "@shared/schema";
 import { storage } from "./storage";
 import { z } from "zod";
 import multer from "multer";
@@ -468,6 +468,413 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting all conversations:", error);
       res.status(500).json({ error: "Failed to delete all conversations" });
+    }
+  });
+
+  // Ledgers
+  app.get("/api/ledgers", async (req, res) => {
+    try {
+      const projectId = req.query.project_id ? parseInt(req.query.project_id as string) : undefined;
+      const conversationId = req.query.conversation_id ? parseInt(req.query.conversation_id as string) : undefined;
+      const ledgerList = await storage.getLedgers({ projectId, conversationId });
+      res.json(ledgerList);
+    } catch (error) {
+      console.error("Error fetching ledgers:", error);
+      res.status(500).json({ error: "Failed to fetch ledgers" });
+    }
+  });
+
+  app.get("/api/ledgers/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const ledger = await storage.getLedger(id);
+      if (!ledger) {
+        return res.status(404).json({ error: "Ledger not found" });
+      }
+      const versions = await storage.getLedgerVersions(id);
+      res.json({ ...ledger, versions });
+    } catch (error) {
+      console.error("Error fetching ledger:", error);
+      res.status(500).json({ error: "Failed to fetch ledger" });
+    }
+  });
+
+  app.post("/api/ledgers", async (req, res) => {
+    try {
+      const validatedData = insertLedgerSchema.parse(req.body);
+      const ledger = await storage.createLedger(validatedData);
+      
+      // Create initial empty version
+      await storage.createLedgerVersion({
+        ledgerId: ledger.id,
+        versionNumber: 1,
+        contentMarkdown: "",
+      });
+      
+      res.json(ledger);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      console.error("Error creating ledger:", error);
+      res.status(500).json({ error: "Failed to create ledger" });
+    }
+  });
+
+  app.put("/api/ledgers/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = updateLedgerSchema.parse(req.body);
+      const ledger = await storage.updateLedger(id, validatedData);
+      if (!ledger) {
+        return res.status(404).json({ error: "Ledger not found" });
+      }
+      res.json(ledger);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      console.error("Error updating ledger:", error);
+      res.status(500).json({ error: "Failed to update ledger" });
+    }
+  });
+
+  app.put("/api/ledgers/:id/content", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { contentMarkdown } = req.body;
+      
+      if (typeof contentMarkdown !== "string") {
+        return res.status(400).json({ error: "contentMarkdown is required" });
+      }
+      
+      const ledger = await storage.getLedger(id);
+      if (!ledger) {
+        return res.status(404).json({ error: "Ledger not found" });
+      }
+      
+      // Get latest version to determine next version number
+      const latestVersion = await storage.getLatestLedgerVersion(id);
+      const nextVersionNumber = latestVersion ? latestVersion.versionNumber + 1 : 1;
+      
+      // Always create a new version
+      const newVersion = await storage.createLedgerVersion({
+        ledgerId: id,
+        versionNumber: nextVersionNumber,
+        contentMarkdown,
+      });
+      
+      res.json(newVersion);
+    } catch (error) {
+      console.error("Error updating ledger content:", error);
+      res.status(500).json({ error: "Failed to update ledger content" });
+    }
+  });
+
+  app.delete("/api/ledgers/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteLedger(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting ledger:", error);
+      res.status(500).json({ error: "Failed to delete ledger" });
+    }
+  });
+
+  app.get("/api/ledgers/:id/versions", async (req, res) => {
+    try {
+      const ledgerId = parseInt(req.params.id);
+      const versions = await storage.getLedgerVersions(ledgerId);
+      res.json(versions);
+    } catch (error) {
+      console.error("Error fetching ledger versions:", error);
+      res.status(500).json({ error: "Failed to fetch ledger versions" });
+    }
+  });
+
+  app.post("/api/ledgers/:id/restore/:versionId", async (req, res) => {
+    try {
+      const ledgerId = parseInt(req.params.id);
+      const versionId = parseInt(req.params.versionId);
+      
+      const ledger = await storage.getLedger(ledgerId);
+      if (!ledger) {
+        return res.status(404).json({ error: "Ledger not found" });
+      }
+      
+      const versionToRestore = await storage.getLedgerVersion(versionId);
+      if (!versionToRestore || versionToRestore.ledgerId !== ledgerId) {
+        return res.status(404).json({ error: "Version not found" });
+      }
+      
+      // Create a new version with the restored content
+      const latestVersion = await storage.getLatestLedgerVersion(ledgerId);
+      const nextVersionNumber = latestVersion ? latestVersion.versionNumber + 1 : 1;
+      
+      const newVersion = await storage.createLedgerVersion({
+        ledgerId,
+        versionNumber: nextVersionNumber,
+        contentMarkdown: versionToRestore.contentMarkdown,
+        createdFromThreadSnapshot: JSON.stringify({ restoredFromVersion: versionId }),
+      });
+      
+      res.json(newVersion);
+    } catch (error) {
+      console.error("Error restoring ledger version:", error);
+      res.status(500).json({ error: "Failed to restore ledger version" });
+    }
+  });
+
+  app.post("/api/ledgers/:id/export-md", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const ledger = await storage.getLedger(id);
+      if (!ledger) {
+        return res.status(404).json({ error: "Ledger not found" });
+      }
+      
+      const latestVersion = await storage.getLatestLedgerVersion(id);
+      const content = latestVersion?.contentMarkdown || "";
+      
+      // Return as downloadable markdown
+      res.setHeader("Content-Type", "text/markdown");
+      res.setHeader("Content-Disposition", `attachment; filename="${ledger.title.replace(/[^a-z0-9]/gi, "_")}.md"`);
+      res.send(`# ${ledger.title}\n\n${content}`);
+    } catch (error) {
+      console.error("Error exporting ledger:", error);
+      res.status(500).json({ error: "Failed to export ledger" });
+    }
+  });
+
+  // Ledger generation templates
+  const LEDGER_TEMPLATES: Record<string, string> = {
+    report: `Based on this conversation, generate a structured report with these sections:
+## Summary
+(Brief overview of the main topic)
+
+## Key Points
+- (Main insights from the discussion)
+
+## Decisions Made
+- (Any decisions that were reached)
+
+## Next Steps
+- (Action items or follow-ups)
+
+## Open Questions
+- (Unresolved items or areas needing more exploration)`,
+
+    plan: `Based on this conversation, create an actionable plan with these sections:
+## Goal
+(What we're trying to achieve)
+
+## Constraints
+- (Limitations or requirements)
+
+## Step-by-Step Plan
+1. (First action)
+2. (Second action)
+3. (Continue as needed)
+
+## Risks
+- (Potential issues to watch for)
+
+## Checklist
+- [ ] (First checkpoint)
+- [ ] (Continue as needed)`,
+
+    checklist: `Based on this conversation, create a structured checklist:
+## Main Tasks
+- [ ] (Task 1)
+- [ ] (Task 2)
+
+## Secondary Tasks
+- [ ] (Optional or lower-priority items)
+
+## Completed
+- [x] (If any items were already done)`,
+
+    draft: `Based on this conversation, create a clean draft document. Write only the content without commentary or analysis. Focus on clear, well-structured prose.`,
+
+    notes: `Based on this conversation, create organized notes:
+## Key Points
+- (Main takeaway 1)
+- (Main takeaway 2)
+
+## Details
+- (Supporting information)
+
+## References
+- (Any links, sources, or related items mentioned)
+
+## Highlights
+> (Important quotes or statements)`,
+
+    code: `Based on this conversation, extract and organize the code discussed:
+\`\`\`
+(Primary code block)
+\`\`\`
+
+## How to Run
+(Instructions for running or using this code)
+
+## Assumptions
+- (Any prerequisites or dependencies)
+
+## Notes
+- (Additional context about the code)`
+  };
+
+  app.post("/api/ledgers/:id/generate-from-thread", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { conversationId, model = "claude-sonnet-4-5" } = req.body;
+      
+      if (!conversationId) {
+        return res.status(400).json({ error: "conversationId is required" });
+      }
+      
+      const ledger = await storage.getLedger(id);
+      if (!ledger) {
+        return res.status(404).json({ error: "Ledger not found" });
+      }
+      
+      // Get conversation messages
+      const messages = await storage.getMessages(conversationId);
+      if (messages.length === 0) {
+        return res.status(400).json({ error: "No messages in conversation" });
+      }
+      
+      // Build conversation context
+      const conversationText = messages
+        .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+        .join("\n\n");
+      
+      // Get template for ledger type
+      const template = LEDGER_TEMPLATES[ledger.type] || LEDGER_TEMPLATES.notes;
+      
+      // Generate content using Claude
+      const response = await anthropic.messages.create({
+        model,
+        max_tokens: 4000,
+        system: `You are a helpful assistant that generates well-structured documents from conversations. Generate Markdown content based on the template provided.`,
+        messages: [{
+          role: "user",
+          content: `Here is a conversation:\n\n${conversationText}\n\n---\n\nPlease generate a "${ledger.type}" document using this template:\n\n${template}\n\nGenerate the content now:`
+        }]
+      });
+      
+      const generatedContent = response.content[0].type === "text" 
+        ? response.content[0].text 
+        : "";
+      
+      // Get latest version to determine next version number
+      const latestVersion = await storage.getLatestLedgerVersion(id);
+      const nextVersionNumber = latestVersion ? latestVersion.versionNumber + 1 : 1;
+      
+      // Create new version with generated content
+      const newVersion = await storage.createLedgerVersion({
+        ledgerId: id,
+        versionNumber: nextVersionNumber,
+        contentMarkdown: generatedContent,
+        createdFromThreadSnapshot: JSON.stringify({ 
+          conversationId, 
+          messageIds: messages.map(m => m.id) 
+        }),
+      });
+      
+      // Record API usage
+      const inputTokens = response.usage?.input_tokens || 0;
+      const outputTokens = response.usage?.output_tokens || 0;
+      await storage.recordApiUsage({
+        model,
+        inputTokens,
+        outputTokens,
+        costUsd: calculateCost(model, inputTokens, outputTokens),
+        conversationId,
+      });
+      
+      res.json({ version: newVersion, content: generatedContent });
+    } catch (error) {
+      console.error("Error generating ledger from thread:", error);
+      res.status(500).json({ error: "Failed to generate ledger from thread" });
+    }
+  });
+
+  app.post("/api/ledgers/:id/update-from-thread", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { conversationId, model = "claude-sonnet-4-5" } = req.body;
+      
+      if (!conversationId) {
+        return res.status(400).json({ error: "conversationId is required" });
+      }
+      
+      const ledger = await storage.getLedger(id);
+      if (!ledger) {
+        return res.status(404).json({ error: "Ledger not found" });
+      }
+      
+      // Get current content
+      const currentVersion = await storage.getLatestLedgerVersion(id);
+      const currentContent = currentVersion?.contentMarkdown || "";
+      
+      // Get conversation messages
+      const messages = await storage.getMessages(conversationId);
+      if (messages.length === 0) {
+        return res.status(400).json({ error: "No messages in conversation" });
+      }
+      
+      // Build conversation context
+      const conversationText = messages
+        .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+        .join("\n\n");
+      
+      // Generate updated content using Claude
+      const response = await anthropic.messages.create({
+        model,
+        max_tokens: 4000,
+        system: `You are a helpful assistant that updates documents based on new conversation context. Preserve the document's structure and existing important content while incorporating new information.`,
+        messages: [{
+          role: "user",
+          content: `Here is the current document:\n\n${currentContent}\n\n---\n\nHere is a new conversation with updates:\n\n${conversationText}\n\n---\n\nPlease update the document to incorporate any new information, decisions, or changes from the conversation. Keep the same structure and format. Output only the updated document:`
+        }]
+      });
+      
+      const updatedContent = response.content[0].type === "text" 
+        ? response.content[0].text 
+        : "";
+      
+      // Always create a new version
+      const nextVersionNumber = currentVersion ? currentVersion.versionNumber + 1 : 1;
+      
+      const newVersion = await storage.createLedgerVersion({
+        ledgerId: id,
+        versionNumber: nextVersionNumber,
+        contentMarkdown: updatedContent,
+        createdFromThreadSnapshot: JSON.stringify({ 
+          conversationId, 
+          messageIds: messages.map(m => m.id),
+          updateFromVersion: currentVersion?.id
+        }),
+      });
+      
+      // Record API usage
+      const inputTokens = response.usage?.input_tokens || 0;
+      const outputTokens = response.usage?.output_tokens || 0;
+      await storage.recordApiUsage({
+        model,
+        inputTokens,
+        outputTokens,
+        costUsd: calculateCost(model, inputTokens, outputTokens),
+        conversationId,
+      });
+      
+      res.json({ version: newVersion, content: updatedContent });
+    } catch (error) {
+      console.error("Error updating ledger from thread:", error);
+      res.status(500).json({ error: "Failed to update ledger from thread" });
     }
   });
 
