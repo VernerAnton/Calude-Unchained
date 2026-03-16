@@ -9,7 +9,6 @@ import { ExportButton } from "@/components/ExportButton";
 import { EditableChatTitle } from "@/components/EditableChatTitle";
 import { ThreadPanel } from "@/components/ThreadPanel";
 import { ThreadsDropdown } from "@/components/ThreadsDropdown";
-import { ContextPanel } from "@/components/ContextPanel";
 import { type Message, type ModelValue, type Conversation, type FileAttachment, type MessageFile } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -30,7 +29,6 @@ export default function Chat() {
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
   const [branchSelections, setBranchSelections] = useState<BranchSelection>({});
   const [threadRootId, setThreadRootId] = useState<number | null>(null);
-  const [isContextPanelOpen, setIsContextPanelOpen] = useState(false);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -506,28 +504,10 @@ export default function Chat() {
             disabled={isStreaming}
             initialValue={conversation?.draft || ""}
             onDraftChange={handleDraftChange}
-            onToggleContext={() => setIsContextPanelOpen(prev => !prev)}
-            isContextOpen={isContextPanelOpen}
           />
         </div>
       </div>
     </div>
-  );
-
-  const mainWithContextPanel = (
-    <ResizablePanelGroup direction="horizontal" className="h-full">
-      <ResizablePanel defaultSize={70} minSize={40}>
-        {mainContent}
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={30} minSize={20}>
-        <ContextPanel
-          conversationId={conversationId || undefined}
-          projectId={conversation?.projectId || undefined}
-          onClose={() => setIsContextPanelOpen(false)}
-        />
-      </ResizablePanel>
-    </ResizablePanelGroup>
   );
 
   if (threadRootId && threadRootMessage && conversationId) {
@@ -549,10 +529,6 @@ export default function Chat() {
         </ResizablePanel>
       </ResizablePanelGroup>
     );
-  }
-
-  if (isContextPanelOpen) {
-    return mainWithContextPanel;
   }
 
   return mainContent;

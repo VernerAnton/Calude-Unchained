@@ -39,19 +39,12 @@ The application features a professional, modern design with a distinctive "old t
 - Rich text rendering of Claude responses with Markdown support (bold, italic, code, lists, headers).
 - **API Usage Tracking**: Comprehensive cost monitoring with per-request token tracking, USD cost calculation using Anthropic's pricing, daily and monthly breakdowns, 30-day usage graphs, and per-model cost analysis.
 - **Usage Intensity Indicator**: Relative usage tracking based on the user's own 7-day rolling median baseline. Displays intensity levels (Learning/Low/Medium/High/Very High) with colored chip above the Send button. Actual dollar amounts (today/month) shown on hover tooltip. No hard budgets since users pay API providers directly.
-- **Ledgers System (Canvas-style Documents)**: Persistent, versioned documents linked to conversations or projects. Six types: Report, Plan, Checklist, Draft, Notes, Code. Features include:
-  - Immutable version history (every save creates a new version)
-  - AI-powered generation from conversation context using type-specific templates
-  - "Update from thread" to regenerate based on latest conversation state
-  - Version restore (creates new version, never overwrites history)
-  - Export as Markdown with proper formatting
-  - Context Panel UI: toggleable right sidebar with Tabs for Ledgers and Files
 
 ### System Design Choices
 - **Schema-first architecture**: Ensures type safety across frontend and backend.
 - **Drizzle ORM**: Provides type-safe database queries.
 - **Server-Sent Events**: Used for efficient one-way streaming communication.
-- **Database Schema**: `conversations`, `messages`, `messageFiles`, `projects`, `projectFiles`, `ledgers`, and `ledgerVersions` tables with appropriate relationships and cascade deletes. `parentMessageId` in the `messages` table supports conversation branching. `messageFiles` stores file attachments with base64 data for images/PDFs and extracted content for text files. `ledgers` stores persistent documents with types (report, plan, checklist, draft, notes, code), linked optionally to conversations or projects. `ledgerVersions` maintains immutable version history with cascade delete on parent ledger.
+- **Database Schema**: `conversations`, `messages`, `messageFiles`, `projects`, and `projectFiles` tables with appropriate relationships and cascade deletes. `parentMessageId` in the `messages` table supports conversation branching. `messageFiles` stores file attachments with base64 data for images/PDFs and extracted content for text files.
 
 ## External Dependencies
 
