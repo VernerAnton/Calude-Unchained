@@ -10,7 +10,7 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
     <div className="flex items-center gap-3">
       <label 
         htmlFor="model-select" 
-        className="hidden sm:inline text-sm font-bold tracking-[0.1em]"
+        className="hidden sm:inline text-sm font-bold tracking-[0.1em] whitespace-nowrap"
       >
         [ MODEL ]
       </label>
