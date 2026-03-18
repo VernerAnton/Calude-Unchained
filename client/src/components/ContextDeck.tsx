@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { type Ledger } from "@shared/schema";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LedgerViewer } from "./LedgerViewer";
+
+export interface ContextDeckHandle {
+  openLedger: (id: number) => void;
+}
 
 const LEDGER_TYPE_STYLES: Record<string, { border: string; text: string }> = {
   report: { border: "border-blue-500", text: "text-blue-500" },
@@ -30,58 +35,88 @@ interface ContextDeckProps {
   onClose: () => void;
 }
 
-export function ContextDeck({ onClose }: ContextDeckProps) {
-  const [activeTab, setActiveTab] = useState<"ledgers" | "context">("ledgers");
+export const ContextDeck = forwardRef<ContextDeckHandle, ContextDeckProps>(
+  function ContextDeck({ onClose }, ref) {
+    const [activeTab, setActiveTab] = useState<"ledgers" | "context">("ledgers");
+    const [selectedLedgerId, setSelectedLedgerId] = useState<number | null>(null);
 
-  const { data: ledgers = [], isLoading, isError } = useQuery<Ledger[]>({
-    queryKey: ["/api/ledgers"],
-    refetchInterval: 15000,
-  });
+    const { data: ledgers = [], isLoading, isError } = useQuery<Ledger[]>({
+      queryKey: ["/api/ledgers"],
+      refetchInterval: 15000,
+    });
 
-  return (
-    <div
-      className="h-full flex flex-col border-l-2 border-border bg-background flex-shrink-0"
-      style={{ width: "288px" }}
-      data-testid="context-deck"
-    >
-      {/* Tab bar + close */}
-      <div className="border-b-2 border-border px-2 py-2 flex items-center justify-between flex-shrink-0 gap-1">
-        <div className="flex items-center gap-1 flex-1 min-w-0">
-          <TabButton
-            label="Ledgers"
-            active={activeTab === "ledgers"}
-            onClick={() => setActiveTab("ledgers")}
-            testId="tab-ledgers"
-          />
-          <TabButton
-            label="Context / Files"
-            active={activeTab === "context"}
-            onClick={() => setActiveTab("context")}
-            testId="tab-context"
-          />
+    useImperativeHandle(ref, () => ({
+      openLedger(id: number) {
+        setActiveTab("ledgers");
+        setSelectedLedgerId(id);
+      },
+    }));
+
+    const handleLedgerClick = (id: number) => {
+      setSelectedLedgerId(id);
+    };
+
+    const handleBack = () => {
+      setSelectedLedgerId(null);
+    };
+
+    return (
+      <div
+        className="h-full flex flex-col border-l-2 border-border bg-background flex-shrink-0"
+        style={{ width: "288px" }}
+        data-testid="context-deck"
+      >
+        {/* Tab bar + close — always visible */}
+        <div className="border-b-2 border-border px-2 py-2 flex items-center justify-between flex-shrink-0 gap-1">
+          <div className="flex items-center gap-1 flex-1 min-w-0">
+            <TabButton
+              label="Ledgers"
+              active={activeTab === "ledgers"}
+              onClick={() => { setActiveTab("ledgers"); setSelectedLedgerId(null); }}
+              testId="tab-ledgers"
+            />
+            <TabButton
+              label="Context / Files"
+              active={activeTab === "context"}
+              onClick={() => { setActiveTab("context"); setSelectedLedgerId(null); }}
+              testId="tab-context"
+            />
+          </div>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onClose}
+            data-testid="button-close-context-deck"
+            className="flex-shrink-0"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={onClose}
-          data-testid="button-close-context-deck"
-          className="flex-shrink-0"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto">
-        {activeTab === "ledgers" ? (
-          <LedgersPanel ledgers={ledgers} isLoading={isLoading} isError={isError} />
-        ) : (
-          <ContextFilesPanel />
-        )}
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          {activeTab === "ledgers" ? (
+            selectedLedgerId !== null ? (
+              <LedgerViewer
+                ledgerId={selectedLedgerId}
+                onBack={handleBack}
+              />
+            ) : (
+              <LedgersPanel
+                ledgers={ledgers}
+                isLoading={isLoading}
+                isError={isError}
+                onLedgerClick={handleLedgerClick}
+              />
+            )
+          ) : (
+            <ContextFilesPanel />
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
+);
 
 function TabButton({
   label,
@@ -114,10 +149,12 @@ function LedgersPanel({
   ledgers,
   isLoading,
   isError,
+  onLedgerClick,
 }: {
   ledgers: Ledger[];
   isLoading: boolean;
   isError: boolean;
+  onLedgerClick: (id: number) => void;
 }) {
   if (isLoading) {
     return (
@@ -158,10 +195,11 @@ function LedgersPanel({
       {ledgers.map((ledger) => {
         const style = LEDGER_TYPE_STYLES[ledger.type] ?? LEDGER_TYPE_STYLES.note;
         return (
-          <div
+          <button
             key={ledger.id}
-            className="border-2 border-border bg-card p-3 font-mono cursor-default"
+            className="w-full text-left border-2 border-border bg-card p-3 font-mono hover-elevate active-elevate-2"
             style={{ boxShadow: "2px 2px 0px hsl(var(--border))" }}
+            onClick={() => onLedgerClick(ledger.id)}
             data-testid={`ledger-item-${ledger.id}`}
           >
             <div className="text-sm font-semibold leading-snug truncate mb-2">
@@ -177,7 +215,7 @@ function LedgersPanel({
                 {relativeTime(ledger.updatedAt)}
               </span>
             </div>
-          </div>
+          </button>
         );
       })}
     </div>

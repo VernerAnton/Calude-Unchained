@@ -16,7 +16,7 @@ import { getActivePath, getSiblings, getThreadMessages, normalizeParentId, type 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useSettings } from "@/contexts/SettingsContext";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { ContextDeck } from "@/components/ContextDeck";
+import { ContextDeck, type ContextDeckHandle } from "@/components/ContextDeck";
 import { PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -46,6 +46,7 @@ export default function Chat() {
   const streamingContentRef = useRef("");
   const rafIdRef = useRef<number | null>(null);
   const draftTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const contextDeckRef = useRef<ContextDeckHandle>(null);
   
   const flushStreamingContent = useCallback(() => {
     setStreamingContent(streamingContentRef.current);
@@ -529,7 +530,7 @@ export default function Chat() {
   );
 
   const contextDeckEl = showContextDeck ? (
-    <ContextDeck onClose={() => setShowContextDeck(false)} />
+    <ContextDeck ref={contextDeckRef} onClose={() => setShowContextDeck(false)} />
   ) : null;
 
   if (threadRootId && threadRootMessage && conversationId) {
