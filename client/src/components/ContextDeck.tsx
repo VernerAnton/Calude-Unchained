@@ -62,8 +62,7 @@ export const ContextDeck = forwardRef<ContextDeckHandle, ContextDeckProps>(
 
     return (
       <div
-        className="h-full flex flex-col border-l-2 border-border bg-background flex-shrink-0"
-        style={{ width: "288px" }}
+        className="h-full flex flex-col bg-background"
         data-testid="context-deck"
       >
         {/* Tab bar + close — always visible */}

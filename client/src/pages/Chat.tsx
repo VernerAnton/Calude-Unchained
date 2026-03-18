@@ -15,7 +15,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getActivePath, getSiblings, getThreadMessages, normalizeParentId, type BranchSelection } from "@/lib/messageTree";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useSettings } from "@/contexts/SettingsContext";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { ContextDeck, type ContextDeckHandle } from "@/components/ContextDeck";
 import { PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,8 @@ export default function Chat() {
   const [branchSelections, setBranchSelections] = useState<BranchSelection>({});
   const [threadRootId, setThreadRootId] = useState<number | null>(null);
   const [showContextDeck, setShowContextDeck] = useState(false);
+  const { open: sidebarOpen, setOpen: setSidebarOpen } = useSidebar();
+  const sidebarWasOpenRef = useRef<boolean | null>(null);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -53,6 +55,16 @@ export default function Chat() {
   const { data: allLedgers = [] } = useQuery<Ledger[]>({
     queryKey: ["/api/ledgers"],
   });
+
+  useEffect(() => {
+    if (showContextDeck) {
+      sidebarWasOpenRef.current = sidebarOpen;
+      setSidebarOpen(false);
+    } else if (sidebarWasOpenRef.current !== null) {
+      setSidebarOpen(sidebarWasOpenRef.current);
+      sidebarWasOpenRef.current = null;
+    }
+  }, [showContextDeck]);
 
   useEffect(() => {
     if (showContextDeck && pendingLedgerIdRef.current !== null) {
@@ -605,30 +617,61 @@ export default function Chat() {
     </div>
   );
 
-  const contextDeckEl = showContextDeck ? (
-    <ContextDeck ref={contextDeckRef} onClose={() => setShowContextDeck(false)} />
-  ) : null;
-
   if (threadRootId && threadRootMessage && conversationId) {
+    const chatArea = (
+      <ResizablePanelGroup direction="horizontal" className="h-full w-full">
+        <ResizablePanel defaultSize={60} minSize={30}>
+          {mainContent}
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize={40} minSize={25}>
+          <ThreadPanel
+            rootMessage={threadRootMessage}
+            threadMessages={threadMessages}
+            conversationId={conversationId}
+            selectedModel={effectiveModel}
+            systemPrompt={conversation?.systemPrompt}
+            onClose={handleCloseThread}
+          />
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    );
+
+    if (showContextDeck) {
+      return (
+        <div className="flex h-full w-full overflow-hidden">
+          <ResizablePanelGroup direction="horizontal" className="h-full w-full">
+            <ResizablePanel defaultSize={50} minSize={30}>
+              {chatArea}
+            </ResizablePanel>
+            <ResizableHandle className="w-[2px] bg-border" data-testid="context-deck-resize-handle" />
+            <ResizablePanel defaultSize={50} minSize={20}>
+              <ContextDeck ref={contextDeckRef} onClose={() => setShowContextDeck(false)} />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
+      );
+    }
+
     return (
       <div className="flex h-full w-full overflow-hidden">
-        <ResizablePanelGroup direction="horizontal" className="flex-1 min-w-0">
-          <ResizablePanel defaultSize={60} minSize={30}>
+        {chatArea}
+      </div>
+    );
+  }
+
+  if (showContextDeck) {
+    return (
+      <div className="flex h-full w-full overflow-hidden">
+        <ResizablePanelGroup direction="horizontal" className="h-full w-full">
+          <ResizablePanel defaultSize={50} minSize={30}>
             {mainContent}
           </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={40} minSize={25}>
-            <ThreadPanel
-              rootMessage={threadRootMessage}
-              threadMessages={threadMessages}
-              conversationId={conversationId}
-              selectedModel={effectiveModel}
-              systemPrompt={conversation?.systemPrompt}
-              onClose={handleCloseThread}
-            />
+          <ResizableHandle className="w-[2px] bg-border" data-testid="context-deck-resize-handle" />
+          <ResizablePanel defaultSize={50} minSize={20}>
+            <ContextDeck ref={contextDeckRef} onClose={() => setShowContextDeck(false)} />
           </ResizablePanel>
         </ResizablePanelGroup>
-        {contextDeckEl}
       </div>
     );
   }
@@ -638,7 +681,6 @@ export default function Chat() {
       <div className="flex-1 min-w-0 overflow-hidden">
         {mainContent}
       </div>
-      {contextDeckEl}
     </div>
   );
 }
