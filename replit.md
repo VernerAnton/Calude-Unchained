@@ -48,9 +48,9 @@ The application features a professional, modern design with a distinctive "old t
 - **Database Schema**: `conversations`, `messages`, `messageFiles`, `projects`, `projectFiles`, `ledgers`, and `ledgerVersions` tables with appropriate relationships and cascade deletes. `parentMessageId` in the `messages` table supports conversation branching. `messageFiles` stores file attachments with base64 data for images/PDFs and extracted content for text files. `ledgers` store persistent AI-generated artifacts with type (report/plan/code/note/draft); `ledgerVersions` tracks full version history.
 
 ### Neon HTTP Driver Known Bugs (Workarounds Applied)
-- **Empty result crash**: `SELECT ... LIMIT 1` returning 0 rows causes `processQueryResult` to receive `null` and throw `Cannot read properties of null (reading 'map')`. Fix: wrap queries that may return 0 rows in try/catch, or use array destructuring with `[result]` safely.
+- **Empty result crash**: Any query returning 0 rows can cause `processQueryResult` to receive `null` and throw `Cannot read properties of null (reading 'map')`. Fix: wrap all list/select queries in try/catch returning `[]` or `undefined` on error. Applied to: `getConversations`, `getConversation`, `getMessages`, `getMessageFiles`, `getMessageFilesForMessages`, `getLedgers`.
 - **Null integer serialization**: Passing `null` explicitly for an integer column serializes it as `""` (empty string) in the HTTP wire format, causing `invalid input syntax for type integer: ""`. Fix: omit nullable integer fields from INSERT values object entirely, letting PostgreSQL use its column default (NULL).
-- **INSERT RETURNING broken**: `db.insert(...).values(...).returning()` returns empty array even when the row is created. Fix: omit `.returning()`, then immediately SELECT the latest row by `orderBy(desc(id)).limit(1)`. Applied to `createConversation`, `createProject`, `createMessage`, `createMessageFile`.
+- **INSERT/UPDATE RETURNING broken**: `.returning()` on INSERT or UPDATE returns empty array even when the row is created/updated. Fix: omit `.returning()`, then immediately SELECT the affected row. Applied to: `createConversation`, `createProject`, `createMessage`, `createMessageFile`, `createProjectFile`, `updateConversation`, `updateProject`, `updateSettings`, `recordApiUsage`, `getSettings` (INSERT fallback).
 
 ## External Dependencies
 

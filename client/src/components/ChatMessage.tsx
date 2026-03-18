@@ -38,13 +38,8 @@ function LedgerChip({ chip, onClick }: { chip: LedgerChipInfo; onClick: () => vo
       style={{ boxShadow: "3px 3px 0px hsl(var(--border))" }}
       data-testid={`ledger-chip-${chip.title}`}
     >
-      <span className="text-[9px] uppercase tracking-widest text-muted-foreground whitespace-nowrap">
-        Ledger
-      </span>
-      <span className="font-bold truncate max-w-[180px] text-foreground">{chip.title}</span>
-      <span className="text-[9px] uppercase tracking-wider text-muted-foreground whitespace-nowrap">
-        {LEDGER_TYPE_LABEL[chip.type] ?? chip.type.toUpperCase()}
-      </span>
+      <span className="text-muted-foreground whitespace-nowrap">Ledger Generated:</span>
+      <span className="font-bold truncate max-w-[200px] text-foreground">{chip.title}</span>
     </button>
   );
 }
@@ -66,7 +61,6 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
-// ========== ADD THESE NEW HELPER FUNCTIONS HERE ==========
 const WORD_LIMIT = 50;
 
 const countWords = (text: string): number => {
@@ -78,7 +72,6 @@ const getTruncatedText = (text: string, wordLimit: number): string => {
   if (words.length <= wordLimit) return text;
   return words.slice(0, wordLimit).join(" ") + "...";
 };
-// ========== END OF NEW HELPER FUNCTIONS ==========
 
 export const ChatMessage = memo(function ChatMessage({ 
   message,

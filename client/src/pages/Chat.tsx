@@ -239,6 +239,9 @@ export default function Chat() {
       const decoder = new TextDecoder();
       let fullContent = "";
       let savedMessageId: number | null = null;
+      const savedLedgerMap: Array<{ title: string; type: string; id: number }> = [];
+      const savedLedgerTitles = new Set<string>();
+      const ledgerSavePromises: Promise<void>[] = [];
 
       if (reader) {
         while (true) {
@@ -258,8 +261,27 @@ export default function Chat() {
                 const parsed = JSON.parse(data);
                 if (parsed.content) {
                   fullContent += parsed.content;
-                  const { visibleText } = parseLedgerBlocks(fullContent);
+                  const { visibleText, completeLedgers } = parseLedgerBlocks(fullContent);
                   scheduleStreamingUpdate(visibleText);
+                  // Save each newly completed ledger block immediately as it arrives
+                  for (const ledger of completeLedgers) {
+                    if (!savedLedgerTitles.has(ledger.title)) {
+                      savedLedgerTitles.add(ledger.title);
+                      const p = apiRequest("/api/ledgers", {
+                        method: "POST",
+                        body: JSON.stringify({
+                          title: ledger.title,
+                          type: ledger.type,
+                          initialContent: ledger.content,
+                        }),
+                      }).then((result) => {
+                        if (result?.ledger?.id) {
+                          savedLedgerMap.push({ title: ledger.title, type: ledger.type, id: result.ledger.id });
+                        }
+                      }).catch((e) => console.error("Failed to save ledger:", e));
+                      ledgerSavePromises.push(p);
+                    }
+                  }
                 }
                 if (typeof parsed.savedMessageId === "number") {
                   savedMessageId = parsed.savedMessageId;
@@ -277,32 +299,10 @@ export default function Chat() {
         rafIdRef.current = null;
       }
 
-      // Save any ledger blocks that were generated during the stream.
-      // Capture returned IDs so we can store direct references (sentinel format)
-      // in the message content, avoiding fragile title-based lookup later.
-      const { completeLedgers } = parseLedgerBlocks(fullContent);
-      const savedLedgerMap: Array<{ title: string; type: string; id: number }> = [];
-      for (const ledger of completeLedgers) {
-        try {
-          const result = await apiRequest("/api/ledgers", {
-            method: "POST",
-            body: JSON.stringify({
-              title: ledger.title,
-              type: ledger.type,
-              initialContent: ledger.content,
-            }),
-          });
-          if (result?.ledger?.id) {
-            savedLedgerMap.push({ title: ledger.title, type: ledger.type, id: result.ledger.id });
-          }
-        } catch (e) {
-          console.error("Failed to save ledger:", e);
-        }
-      }
-
-      // If we saved ledgers and have the message ID, patch the message content
+      // Wait for all in-flight ledger saves to complete, then patch the message content
       // to replace full <ledger> blocks with compact <ledger-ref id="..."/> sentinels.
-      // This ensures chip clicks use direct IDs rather than title lookup.
+      // This ensures chip clicks use direct IDs rather than fragile title-based lookup.
+      await Promise.all(ledgerSavePromises);
       if (savedLedgerMap.length > 0 && savedMessageId !== null) {
         try {
           const sentinelContent = buildSentinelContent(fullContent, savedLedgerMap);
@@ -315,11 +315,12 @@ export default function Chat() {
         }
       }
 
+      const hadLedgers = savedLedgerMap.length > 0;
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "files"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/usage/summary"] });
-      if (completeLedgers.length > 0) {
+      if (hadLedgers) {
         await queryClient.invalidateQueries({ queryKey: ["/api/ledgers"] });
       }
       
