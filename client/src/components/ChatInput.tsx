@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Paperclip, X, File, Image, FileText, FileCode, Library, GitBranch } from "lucide-react";
+import { Paperclip, X, File, Image, FileText, FileCode, Library, GitBranch, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -119,7 +119,7 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      const newHeight = Math.min(Math.max(textareaRef.current.scrollHeight, COCKPIT_BTN_SIZE * 2 + 8), 240);
+      const newHeight = Math.min(Math.max(textareaRef.current.scrollHeight, COCKPIT_BTN_SIZE), 240);
       textareaRef.current.style.height = `${newHeight}px`;
     }
   }, [message]);
@@ -306,13 +306,13 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
           className="flex-1 border-2 border-border bg-card text-card-foreground p-4 font-mono resize-none focus:outline-none focus:ring-2 focus:ring-border disabled:opacity-60"
           style={{
             boxShadow: "4px 4px 0px hsl(var(--border))",
-            minHeight: `${COCKPIT_BTN_SIZE * 2 + 8}px`,
+            minHeight: `${COCKPIT_BTN_SIZE}px`,
             maxHeight: "240px",
           }}
           data-testid={`${testIdPrefix}input-message`}
         />
 
-        {/* Right column — Usage chip + Send + Branch/Fork */}
+        {/* Right column — Usage chip + [Send | Branch] row */}
         <div className="flex flex-col items-end gap-2 flex-shrink-0">
           {showIntensity && (
             <Tooltip>
@@ -336,33 +336,36 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
               </TooltipContent>
             </Tooltip>
           )}
-          <button
-            type="submit"
-            disabled={disabled || (!message.trim() && pendingFiles.length === 0)}
-            className="border-2 border-border bg-card text-card-foreground px-5 font-bold uppercase tracking-wider hover-elevate active-elevate-2 disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
-            style={{
-              boxShadow: "4px 4px 0px hsl(var(--border))",
-              height: `${COCKPIT_BTN_SIZE}px`,
-            }}
-            data-testid={`${testIdPrefix}button-send`}
-          >
-            <span className="hidden sm:inline">▌ SEND</span>
-            <span className="sm:hidden">▌</span>
-          </button>
-          <button
-            type="button"
-            disabled
-            className="border-2 border-border bg-card text-muted-foreground flex items-center justify-center opacity-35 cursor-not-allowed"
-            style={{
-              boxShadow: "2px 2px 0px hsl(var(--border))",
-              width: `${COCKPIT_BTN_SIZE}px`,
-              height: `${COCKPIT_BTN_SIZE}px`,
-            }}
-            data-testid={`${testIdPrefix}button-branch`}
-            title="Branch / Fork (coming soon)"
-          >
-            <GitBranch className="w-4 h-4" />
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={disabled || (!message.trim() && pendingFiles.length === 0)}
+              className="border-2 border-border bg-card text-card-foreground flex items-center justify-center hover-elevate active-elevate-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{
+                boxShadow: "4px 4px 0px hsl(var(--border))",
+                width: `${COCKPIT_BTN_SIZE}px`,
+                height: `${COCKPIT_BTN_SIZE}px`,
+              }}
+              data-testid={`${testIdPrefix}button-send`}
+              title="Send message"
+            >
+              <ArrowUp className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              disabled
+              className="border-2 border-border bg-card text-muted-foreground flex items-center justify-center opacity-35 cursor-not-allowed"
+              style={{
+                boxShadow: "2px 2px 0px hsl(var(--border))",
+                width: `${COCKPIT_BTN_SIZE}px`,
+                height: `${COCKPIT_BTN_SIZE}px`,
+              }}
+              data-testid={`${testIdPrefix}button-branch`}
+              title="Branch / Fork (coming soon)"
+            >
+              <GitBranch className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </form>
     </div>
