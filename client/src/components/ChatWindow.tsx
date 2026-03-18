@@ -19,6 +19,7 @@ interface ChatWindowProps {
   onDeleteMessage?: (messageId: number) => void;
   onBranchNavigate?: (parentId: number | null, direction: "prev" | "next") => void;
   onOpenThread?: (messageId: number) => void;
+  onLedgerChipClick?: (title: string) => void;
 }
 
 export function ChatWindow({
@@ -34,7 +35,8 @@ export function ChatWindow({
   onRegenerateMessage,
   onDeleteMessage,
   onBranchNavigate,
-  onOpenThread
+  onOpenThread,
+  onLedgerChipClick,
 }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -127,6 +129,7 @@ export function ChatWindow({
             onDelete={onDeleteMessage}
             onBranchNavigate={onBranchNavigate}
             onOpenThread={onOpenThread}
+            onLedgerChipClick={onLedgerChipClick}
           />
         );
       })}

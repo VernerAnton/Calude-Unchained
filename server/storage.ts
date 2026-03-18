@@ -100,8 +100,10 @@ export class DbStorage implements IStorage {
   }
 
   async createProject(project: InsertProject): Promise<Project> {
-    const result = await db.insert(projects).values(project).returning();
-    return result[0];
+    await db.insert(projects).values(project);
+    const [newProject] = await db.select().from(projects).orderBy(desc(projects.id)).limit(1);
+    if (!newProject) throw new Error("Failed to retrieve created project");
+    return newProject;
   }
 
   async updateProject(id: number, updates: Partial<InsertProject>): Promise<Project | undefined> {
@@ -135,13 +137,15 @@ export class DbStorage implements IStorage {
   }
 
   async createConversation(conversation: InsertConversation): Promise<Conversation> {
-    const result = await db.insert(conversations).values(conversation).returning();
+    await db.insert(conversations).values(conversation);
+    const [newConv] = await db.select().from(conversations).orderBy(desc(conversations.id)).limit(1);
+    if (!newConv) throw new Error("Failed to retrieve created conversation");
     
-    if (result[0] && result[0].projectId) {
-      await this.touchProject(result[0].projectId);
+    if (newConv.projectId) {
+      await this.touchProject(newConv.projectId);
     }
     
-    return result[0];
+    return newConv;
   }
 
   async updateConversation(id: number, updates: Partial<InsertConversation>): Promise<Conversation | undefined> {
@@ -174,14 +178,27 @@ export class DbStorage implements IStorage {
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {
-    const result = await db.insert(messages).values(message).returning();
+    // Neon HTTP driver bug: null integers serialize as "" causing DB errors.
+    // Omit parentMessageId entirely when null so PostgreSQL uses its default (NULL).
+    const values: Record<string, unknown> = { ...message };
+    if (values.parentMessageId == null) {
+      delete values.parentMessageId;
+    }
+    await db.insert(messages).values(values as typeof message);
+    const [newMessage] = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.conversationId, message.conversationId))
+      .orderBy(desc(messages.id))
+      .limit(1);
+    if (!newMessage) throw new Error("Failed to retrieve created message");
     
     const conversation = await this.getConversation(message.conversationId);
     if (conversation?.projectId) {
       await this.touchProject(conversation.projectId);
     }
     
-    return result[0];
+    return newMessage;
   }
 
   async deleteMessage(id: number): Promise<void> {
@@ -218,12 +235,18 @@ export class DbStorage implements IStorage {
 
   async getMessageFilesForMessages(messageIds: number[]): Promise<MessageFile[]> {
     if (messageIds.length === 0) return [];
-    return await db.select().from(messageFiles).where(inArray(messageFiles.messageId, messageIds)).orderBy(messageFiles.createdAt);
+    try {
+      return await db.select().from(messageFiles).where(inArray(messageFiles.messageId, messageIds)).orderBy(messageFiles.createdAt);
+    } catch {
+      return [];
+    }
   }
 
   async createMessageFile(file: InsertMessageFile): Promise<MessageFile> {
-    const result = await db.insert(messageFiles).values(file).returning();
-    return result[0];
+    await db.insert(messageFiles).values(file);
+    const [newFile] = await db.select().from(messageFiles).where(eq(messageFiles.messageId, file.messageId)).orderBy(desc(messageFiles.id)).limit(1);
+    if (!newFile) throw new Error("Failed to retrieve created message file");
+    return newFile;
   }
 
   async deleteMessageFile(id: number): Promise<void> {

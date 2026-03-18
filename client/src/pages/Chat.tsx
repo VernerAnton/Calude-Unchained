@@ -9,7 +9,7 @@ import { ExportButton } from "@/components/ExportButton";
 import { EditableChatTitle } from "@/components/EditableChatTitle";
 import { ThreadPanel } from "@/components/ThreadPanel";
 import { ThreadsDropdown } from "@/components/ThreadsDropdown";
-import { type Message, type ModelValue, type Conversation, type FileAttachment, type MessageFile } from "@shared/schema";
+import { type Message, type ModelValue, type Conversation, type FileAttachment, type MessageFile, type Ledger } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getActivePath, getSiblings, getThreadMessages, normalizeParentId, type BranchSelection } from "@/lib/messageTree";
@@ -19,6 +19,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ContextDeck, type ContextDeckHandle } from "@/components/ContextDeck";
 import { PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { parseLedgerBlocks } from "@/lib/ledgerParser";
 
 export default function Chat() {
   const [, params] = useRoute("/chat/:id");
@@ -47,6 +48,30 @@ export default function Chat() {
   const rafIdRef = useRef<number | null>(null);
   const draftTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const contextDeckRef = useRef<ContextDeckHandle>(null);
+  const pendingLedgerIdRef = useRef<number | null>(null);
+
+  const { data: allLedgers = [] } = useQuery<Ledger[]>({
+    queryKey: ["/api/ledgers"],
+  });
+
+  useEffect(() => {
+    if (showContextDeck && pendingLedgerIdRef.current !== null) {
+      const id = pendingLedgerIdRef.current;
+      pendingLedgerIdRef.current = null;
+      setTimeout(() => contextDeckRef.current?.openLedger(id), 0);
+    }
+  }, [showContextDeck]);
+
+  const handleLedgerChipClick = useCallback((title: string) => {
+    const ledger = allLedgers.find(l => l.title === title);
+    if (!ledger) return;
+    if (showContextDeck) {
+      contextDeckRef.current?.openLedger(ledger.id);
+    } else {
+      pendingLedgerIdRef.current = ledger.id;
+      setShowContextDeck(true);
+    }
+  }, [allLedgers, showContextDeck]);
   
   const flushStreamingContent = useCallback(() => {
     setStreamingContent(streamingContentRef.current);
@@ -231,7 +256,8 @@ export default function Chat() {
                 const parsed = JSON.parse(data);
                 if (parsed.content) {
                   fullContent += parsed.content;
-                  scheduleStreamingUpdate(fullContent);
+                  const { visibleText } = parseLedgerBlocks(fullContent);
+                  scheduleStreamingUpdate(visibleText);
                 }
               } catch (e) {
                 // Skip invalid JSON
@@ -245,11 +271,31 @@ export default function Chat() {
         cancelAnimationFrame(rafIdRef.current);
         rafIdRef.current = null;
       }
+
+      // Save any ledger blocks that were generated during the stream
+      const { completeLedgers } = parseLedgerBlocks(fullContent);
+      for (const ledger of completeLedgers) {
+        try {
+          await apiRequest("/api/ledgers", {
+            method: "POST",
+            body: JSON.stringify({
+              title: ledger.title,
+              type: ledger.type,
+              initialContent: ledger.content,
+            }),
+          });
+        } catch (e) {
+          console.error("Failed to save ledger:", e);
+        }
+      }
       
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "files"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/usage/summary"] });
+      if (completeLedgers.length > 0) {
+        await queryClient.invalidateQueries({ queryKey: ["/api/ledgers"] });
+      }
       
       // Check for 80% budget warning
       try {
@@ -515,6 +561,7 @@ export default function Chat() {
           onDeleteMessage={handleDeleteMessage}
           onBranchNavigate={handleBranchNavigate}
           onOpenThread={handleOpenThread}
+          onLedgerChipClick={handleLedgerChipClick}
         />
 
         <div className="border-t-2 border-border px-6 py-4 flex-shrink-0">

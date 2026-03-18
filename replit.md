@@ -39,6 +39,7 @@ The application features a professional, modern design with a distinctive "old t
 - Rich text rendering of Claude responses with Markdown support (bold, italic, code, lists, headers).
 - **API Usage Tracking**: Comprehensive cost monitoring with per-request token tracking, USD cost calculation using Anthropic's pricing, daily and monthly breakdowns, 30-day usage graphs, and per-model cost analysis.
 - **Usage Intensity Indicator**: Relative usage tracking based on the user's own 7-day rolling median baseline. Displays intensity levels (Learning/Low/Medium/High/Very High) with colored chip above the Send button. Actual dollar amounts (today/month) shown on hover tooltip. No hard budgets since users pay API providers directly.
+- **Ledger Pipeline**: Claude automatically generates AI artifacts (code, reports, plans, notes, drafts) wrapped in `<ledger type="..." title="...">` XML tags per an injected system prompt. The frontend parser (`client/src/lib/ledgerParser.ts`) strips the XML from visible streaming content in real time. After streaming, the ledger is auto-saved to the DB via `POST /api/ledgers`. A clickable "Ledger" chip appears below the assistant message; clicking it opens the ContextDeck and navigates directly to the LedgerViewer with the artifact content. Chips persist across page refreshes because the raw `<ledger>` XML is stored in message content and re-parsed on render by `ChatMessage.tsx`.
 
 ### System Design Choices
 - **Schema-first architecture**: Ensures type safety across frontend and backend.
@@ -47,8 +48,9 @@ The application features a professional, modern design with a distinctive "old t
 - **Database Schema**: `conversations`, `messages`, `messageFiles`, `projects`, `projectFiles`, `ledgers`, and `ledgerVersions` tables with appropriate relationships and cascade deletes. `parentMessageId` in the `messages` table supports conversation branching. `messageFiles` stores file attachments with base64 data for images/PDFs and extracted content for text files. `ledgers` store persistent AI-generated artifacts with type (report/plan/code/note/draft); `ledgerVersions` tracks full version history.
 
 ### Neon HTTP Driver Known Bugs (Workarounds Applied)
-- **Empty result crash**: `SELECT ... LIMIT 1` returning 0 rows causes `processQueryResult` to receive `null` and throw `Cannot read properties of null (reading 'map')`. Fix: wrap all LIMIT 1 queries in try/catch that returns `undefined`/`[]`.
+- **Empty result crash**: `SELECT ... LIMIT 1` returning 0 rows causes `processQueryResult` to receive `null` and throw `Cannot read properties of null (reading 'map')`. Fix: wrap queries that may return 0 rows in try/catch, or use array destructuring with `[result]` safely.
 - **Null integer serialization**: Passing `null` explicitly for an integer column serializes it as `""` (empty string) in the HTTP wire format, causing `invalid input syntax for type integer: ""`. Fix: omit nullable integer fields from INSERT values object entirely, letting PostgreSQL use its column default (NULL).
+- **INSERT RETURNING broken**: `db.insert(...).values(...).returning()` returns empty array even when the row is created. Fix: omit `.returning()`, then immediately SELECT the latest row by `orderBy(desc(id)).limit(1)`. Applied to `createConversation`, `createProject`, `createMessage`, `createMessageFile`.
 
 ## External Dependencies
 

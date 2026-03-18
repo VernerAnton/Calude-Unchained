@@ -618,10 +618,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages: claudeMessages,
       };
 
-      // Add system prompt if provided
-      if (systemPrompt) {
-        streamOptions.system = systemPrompt;
-      }
+      // Add system prompt (always include ledger instruction)
+      const LEDGER_INSTRUCTION = `When the user asks you to write code, build an app or script, or draft a comprehensive document (report, plan, analysis, etc.), you MUST wrap the full artifact content in an XML ledger block with this exact format:
+<ledger type="TYPE" title="TITLE">
+CONTENT
+</ledger>
+Valid types: report, plan, code, note, draft.
+Rules:
+- Only one ledger block per response.
+- The ledger block replaces any standalone code block or document body — do NOT repeat the content outside it.
+- Keep your surrounding conversational text brief and outside the ledger block.
+- Never emit a partial or unclosed <ledger> tag.`;
+
+      streamOptions.system = systemPrompt
+        ? `${systemPrompt}\n\n${LEDGER_INSTRUCTION}`
+        : LEDGER_INSTRUCTION;
 
       // Stream response from Claude using event-based streaming for granular updates
       let fullContent = "";

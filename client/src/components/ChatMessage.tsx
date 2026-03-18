@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Check, X, MessageSquarePlus, File, FileText, FileCode, Image as ImageIcon } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { extractLedgerChips, type LedgerChipInfo } from "@/lib/ledgerParser";
 
 interface ChatMessageProps {
   message: Message;
@@ -18,6 +19,34 @@ interface ChatMessageProps {
   onDelete?: (messageId: number) => void;
   onBranchNavigate?: (parentId: number | null, direction: "prev" | "next") => void;
   onOpenThread?: (messageId: number) => void;
+  onLedgerChipClick?: (title: string) => void;
+}
+
+const LEDGER_TYPE_LABEL: Record<string, string> = {
+  report: "REPORT",
+  plan: "PLAN",
+  code: "CODE",
+  note: "NOTE",
+  draft: "DRAFT",
+};
+
+function LedgerChip({ chip, onClick }: { chip: LedgerChipInfo; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-2 border-2 border-border bg-card px-3 py-2 font-mono text-xs hover-elevate active-elevate-2"
+      style={{ boxShadow: "3px 3px 0px hsl(var(--border))" }}
+      data-testid={`ledger-chip-${chip.title}`}
+    >
+      <span className="text-[9px] uppercase tracking-widest text-muted-foreground whitespace-nowrap">
+        Ledger
+      </span>
+      <span className="font-bold truncate max-w-[180px] text-foreground">{chip.title}</span>
+      <span className="text-[9px] uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+        {LEDGER_TYPE_LABEL[chip.type] ?? chip.type.toUpperCase()}
+      </span>
+    </button>
+  );
 }
 
 function getFileIcon(mimeType: string) {
@@ -60,14 +89,22 @@ export const ChatMessage = memo(function ChatMessage({
   onRegenerate, 
   onDelete,
   onBranchNavigate,
-  onOpenThread
+  onOpenThread,
+  onLedgerChipClick,
 }: ChatMessageProps) {
   const isUser = message.role === "user";
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
 
+  // Extract ledger chips from assistant message content
+  const { chips: ledgerChips, cleanContent } = !isUser
+    ? extractLedgerChips(message.content)
+    : { chips: [], cleanContent: message.content };
+
+  const displayContent = !isUser ? cleanContent : message.content;
+
   const [isExpanded, setIsExpanded] = useState(false);
-  const wordCount = countWords(message.content);
+  const wordCount = countWords(displayContent);
   const shouldCollapse = isUser && wordCount > WORD_LIMIT && !isEditing;
   
   const hasBranches = siblings.length > 1;
@@ -244,15 +281,15 @@ export const ChatMessage = memo(function ChatMessage({
           {isUser ? (
             <div className="whitespace-pre-wrap">
               {shouldCollapse && !isExpanded
-                ? getTruncatedText(message.content, WORD_LIMIT)
-                : message.content
+                ? getTruncatedText(displayContent, WORD_LIMIT)
+                : displayContent
               }
             </div>
           ) : (
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {shouldCollapse && !isExpanded
-                ? getTruncatedText(message.content, WORD_LIMIT)
-                : message.content
+                ? getTruncatedText(displayContent, WORD_LIMIT)
+                : displayContent
               }
             </ReactMarkdown>
           )}
@@ -266,6 +303,18 @@ export const ChatMessage = memo(function ChatMessage({
           >
             {isExpanded ? "▲ SHOW LESS" : `▼ SHOW MORE (${wordCount - WORD_LIMIT} more words)`}
           </button>
+        )}
+
+        {ledgerChips.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-3" data-testid={`ledger-chips-${message.id}`}>
+            {ledgerChips.map((chip) => (
+              <LedgerChip
+                key={chip.title}
+                chip={chip}
+                onClick={() => onLedgerChipClick?.(chip.title)}
+              />
+            ))}
+          </div>
         )}
       </div>
         )}
