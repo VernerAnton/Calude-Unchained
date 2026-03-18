@@ -4,10 +4,11 @@ export interface ParsedLedger {
   content: string;
 }
 
-function extractAttributes(attrStr: string): { type?: string; title?: string } {
+function extractAttributes(attrStr: string): { type?: string; title?: string; id?: string } {
   const typeMatch = attrStr.match(/type="([^"]+)"/);
   const titleMatch = attrStr.match(/title="([^"]+)"/);
-  return { type: typeMatch?.[1], title: titleMatch?.[1] };
+  const idMatch = attrStr.match(/id="([^"]+)"/);
+  return { type: typeMatch?.[1], title: titleMatch?.[1], id: idMatch?.[1] };
 }
 
 export function parseLedgerBlocks(text: string): {
@@ -34,8 +35,25 @@ export function parseLedgerBlocks(text: string): {
 }
 
 export interface LedgerChipInfo {
+  id: number;
   title: string;
   type: string;
+}
+
+export function buildSentinelContent(
+  rawContent: string,
+  ledgerMap: Array<{ title: string; type: string; id: number }>
+): string {
+  let result = rawContent;
+  for (const { title, type, id } of ledgerMap) {
+    const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const blockRegex = new RegExp(
+      `<ledger\\s[^>]*title="${escapedTitle}"[^>]*>[\\s\\S]*?<\\/ledger>`,
+      "g"
+    );
+    result = result.replace(blockRegex, `<ledger-ref id="${id}" type="${type}" title="${title}"/>`);
+  }
+  return result;
 }
 
 export function extractLedgerChips(content: string): {
@@ -44,12 +62,24 @@ export function extractLedgerChips(content: string): {
 } {
   const chips: LedgerChipInfo[] = [];
 
-  const cleanContent = content.replace(
+  let cleanContent = content.replace(
+    /<ledger-ref\s([^/]+)\/>/g,
+    (_match, attrs) => {
+      const { id, type, title } = extractAttributes(attrs);
+      const numId = id ? parseInt(id, 10) : NaN;
+      if (!isNaN(numId) && type && title) {
+        chips.push({ id: numId, type, title });
+      }
+      return "";
+    }
+  );
+
+  cleanContent = cleanContent.replace(
     /<ledger\s([^>]+)>([\s\S]*?)<\/ledger>/g,
     (_match, attrs) => {
       const { type, title } = extractAttributes(attrs);
       if (type && title) {
-        chips.push({ type, title });
+        chips.push({ id: -1, type, title });
       }
       return "";
     }

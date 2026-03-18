@@ -49,6 +49,7 @@ export interface IStorage {
   getMessages(conversationId: number): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
   deleteMessage(id: number): Promise<void>;
+  updateMessageContent(id: number, content: string): Promise<void>;
   updateMessageThreadDraft(id: number, threadDraft: string | null): Promise<void>;
   
   // Project Files
@@ -107,12 +108,16 @@ export class DbStorage implements IStorage {
   }
 
   async updateProject(id: number, updates: Partial<InsertProject>): Promise<Project | undefined> {
-    const result = await db
+    await db
       .update(projects)
       .set({ ...updates, updatedAt: new Date() })
-      .where(eq(projects.id, id))
-      .returning();
-    return result[0];
+      .where(eq(projects.id, id));
+    try {
+      const result = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+      return result[0];
+    } catch {
+      return undefined;
+    }
   }
 
   async deleteProject(id: number): Promise<void> {
@@ -128,12 +133,20 @@ export class DbStorage implements IStorage {
 
   // Conversations
   async getConversations(): Promise<Conversation[]> {
-    return await db.select().from(conversations).orderBy(desc(conversations.updatedAt));
+    try {
+      return await db.select().from(conversations).orderBy(desc(conversations.updatedAt));
+    } catch {
+      return [];
+    }
   }
 
   async getConversation(id: number): Promise<Conversation | undefined> {
-    const result = await db.select().from(conversations).where(eq(conversations.id, id)).limit(1);
-    return result[0];
+    try {
+      const result = await db.select().from(conversations).where(eq(conversations.id, id)).limit(1);
+      return result[0];
+    } catch {
+      return undefined;
+    }
   }
 
   async createConversation(conversation: InsertConversation): Promise<Conversation> {
@@ -151,21 +164,24 @@ export class DbStorage implements IStorage {
   async updateConversation(id: number, updates: Partial<InsertConversation>): Promise<Conversation | undefined> {
     const oldConv = await this.getConversation(id);
     
-    const result = await db
+    // Neon HTTP driver bug: .returning() on UPDATE may return empty array even when row is updated.
+    // Fix: do UPDATE without .returning(), then SELECT the row.
+    await db
       .update(conversations)
       .set({ ...updates, updatedAt: new Date() })
-      .where(eq(conversations.id, id))
-      .returning();
+      .where(eq(conversations.id, id));
     
-    if (oldConv?.projectId && oldConv.projectId !== result[0]?.projectId) {
+    const updated = await this.getConversation(id);
+    
+    if (oldConv?.projectId && oldConv.projectId !== updated?.projectId) {
       await this.touchProject(oldConv.projectId);
     }
     
-    if (result[0] && result[0].projectId) {
-      await this.touchProject(result[0].projectId);
+    if (updated?.projectId) {
+      await this.touchProject(updated.projectId);
     }
     
-    return result[0];
+    return updated;
   }
 
   async deleteConversation(id: number): Promise<void> {
@@ -174,7 +190,11 @@ export class DbStorage implements IStorage {
 
   // Messages
   async getMessages(conversationId: number): Promise<Message[]> {
-    return await db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(messages.createdAt);
+    try {
+      return await db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(messages.createdAt);
+    } catch {
+      return [];
+    }
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {
@@ -205,6 +225,10 @@ export class DbStorage implements IStorage {
     await db.delete(messages).where(eq(messages.id, id));
   }
 
+  async updateMessageContent(id: number, content: string): Promise<void> {
+    await db.update(messages).set({ content }).where(eq(messages.id, id));
+  }
+
   async updateMessageThreadDraft(id: number, threadDraft: string | null): Promise<void> {
     await db.update(messages).set({ threadDraft }).where(eq(messages.id, id));
   }
@@ -220,8 +244,10 @@ export class DbStorage implements IStorage {
   }
 
   async createProjectFile(file: InsertProjectFile): Promise<ProjectFile> {
-    const result = await db.insert(projectFiles).values(file).returning();
-    return result[0];
+    await db.insert(projectFiles).values(file);
+    const [newFile] = await db.select().from(projectFiles).where(eq(projectFiles.projectId, file.projectId)).orderBy(desc(projectFiles.id)).limit(1);
+    if (!newFile) throw new Error("Failed to retrieve created project file");
+    return newFile;
   }
 
   async deleteProjectFile(id: number): Promise<void> {
@@ -230,7 +256,11 @@ export class DbStorage implements IStorage {
 
   // Message Files
   async getMessageFiles(messageId: number): Promise<MessageFile[]> {
-    return await db.select().from(messageFiles).where(eq(messageFiles.messageId, messageId)).orderBy(messageFiles.createdAt);
+    try {
+      return await db.select().from(messageFiles).where(eq(messageFiles.messageId, messageId)).orderBy(messageFiles.createdAt);
+    } catch {
+      return [];
+    }
   }
 
   async getMessageFilesForMessages(messageIds: number[]): Promise<MessageFile[]> {
@@ -255,28 +285,32 @@ export class DbStorage implements IStorage {
 
   // Settings
   async getSettings(): Promise<Settings> {
-    const result = await db.select().from(settings).limit(1);
-    if (result[0]) {
-      return result[0];
+    try {
+      const result = await db.select().from(settings).limit(1);
+      if (result[0]) return result[0];
+    } catch {
+      // fall through to create default
     }
-    const newSettings = await db.insert(settings).values({}).returning();
-    return newSettings[0];
+    await db.insert(settings).values({});
+    const [newSettings] = await db.select().from(settings).orderBy(desc(settings.id)).limit(1);
+    return newSettings;
   }
 
   async updateSettings(updates: InsertSettings): Promise<Settings> {
     const existing = await this.getSettings();
-    const result = await db
+    await db
       .update(settings)
       .set({ ...updates, updatedAt: new Date() })
-      .where(eq(settings.id, existing.id))
-      .returning();
-    return result[0];
+      .where(eq(settings.id, existing.id));
+    return this.getSettings();
   }
 
   // API Usage
   async recordApiUsage(usage: InsertApiUsage): Promise<ApiUsage> {
-    const result = await db.insert(apiUsage).values(usage).returning();
-    return result[0];
+    await db.insert(apiUsage).values(usage);
+    const [newUsage] = await db.select().from(apiUsage).orderBy(desc(apiUsage.id)).limit(1);
+    if (!newUsage) throw new Error("Failed to retrieve created api usage record");
+    return newUsage;
   }
 
   async getUsageToday(): Promise<number> {
@@ -356,7 +390,11 @@ export class DbStorage implements IStorage {
 
   // Ledgers
   async getLedgers(): Promise<Ledger[]> {
-    return await db.select().from(ledgers).orderBy(desc(ledgers.updatedAt));
+    try {
+      return await db.select().from(ledgers).orderBy(desc(ledgers.updatedAt));
+    } catch {
+      return [];
+    }
   }
 
   async getLedger(id: number): Promise<Ledger | undefined> {

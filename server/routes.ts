@@ -225,6 +225,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update message thread draft
+  app.patch("/api/messages/:id/content", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+      const { content } = req.body;
+      if (typeof content !== "string") return res.status(400).json({ error: "content must be a string" });
+      await storage.updateMessageContent(id, content);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating message content:", error);
+      res.status(500).json({ error: "Failed to update message content" });
+    }
+  });
+
   app.patch("/api/messages/:id/thread-draft", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -708,7 +722,7 @@ Rules:
 
       // Save assistant response to database with parentMessageId set to the user message
       // Mark as thread message if in thread context
-      await storage.createMessage({
+      const savedAssistantMessage = await storage.createMessage({
         conversationId,
         parentMessageId: savedUserMessage.id,
         role: "assistant",
@@ -716,6 +730,9 @@ Rules:
         model,
         isThreadMessage: threadContext ?? false,
       });
+
+      // Emit saved message ID so client can patch content (e.g. ledger sentinels)
+      res.write(`data: ${JSON.stringify({ savedMessageId: savedAssistantMessage.id })}\n\n`);
 
       // Send completion signal and close stream
       res.write(`data: [DONE]\n\n`);

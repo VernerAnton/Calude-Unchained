@@ -116,7 +116,7 @@ function CodeRenderer({ content }: { content: string }) {
           showTabs: false,
           editorHeight: 240,
         }}
-        style={{ fontFamily: "'Courier New', monospace" }}
+        customSetup={{ environment: "create-react-app" }}
       />
     </div>
   );

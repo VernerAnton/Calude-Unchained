@@ -19,7 +19,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ContextDeck, type ContextDeckHandle } from "@/components/ContextDeck";
 import { PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { parseLedgerBlocks } from "@/lib/ledgerParser";
+import { parseLedgerBlocks, buildSentinelContent } from "@/lib/ledgerParser";
 
 export default function Chat() {
   const [, params] = useRoute("/chat/:id");
@@ -62,13 +62,14 @@ export default function Chat() {
     }
   }, [showContextDeck]);
 
-  const handleLedgerChipClick = useCallback((title: string) => {
-    const ledger = allLedgers.find(l => l.title === title);
-    if (!ledger) return;
+  const handleLedgerChipClick = useCallback((ledgerId: number, title: string) => {
+    // Use direct ID from sentinel format; fall back to title lookup only for legacy chips (id === -1)
+    const resolvedId = ledgerId !== -1 ? ledgerId : allLedgers.find(l => l.title === title)?.id ?? null;
+    if (resolvedId === null) return;
     if (showContextDeck) {
-      contextDeckRef.current?.openLedger(ledger.id);
+      contextDeckRef.current?.openLedger(resolvedId);
     } else {
-      pendingLedgerIdRef.current = ledger.id;
+      pendingLedgerIdRef.current = resolvedId;
       setShowContextDeck(true);
     }
   }, [allLedgers, showContextDeck]);
@@ -237,6 +238,7 @@ export default function Chat() {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let fullContent = "";
+      let savedMessageId: number | null = null;
 
       if (reader) {
         while (true) {
@@ -259,6 +261,9 @@ export default function Chat() {
                   const { visibleText } = parseLedgerBlocks(fullContent);
                   scheduleStreamingUpdate(visibleText);
                 }
+                if (typeof parsed.savedMessageId === "number") {
+                  savedMessageId = parsed.savedMessageId;
+                }
               } catch (e) {
                 // Skip invalid JSON
               }
@@ -272,11 +277,14 @@ export default function Chat() {
         rafIdRef.current = null;
       }
 
-      // Save any ledger blocks that were generated during the stream
+      // Save any ledger blocks that were generated during the stream.
+      // Capture returned IDs so we can store direct references (sentinel format)
+      // in the message content, avoiding fragile title-based lookup later.
       const { completeLedgers } = parseLedgerBlocks(fullContent);
+      const savedLedgerMap: Array<{ title: string; type: string; id: number }> = [];
       for (const ledger of completeLedgers) {
         try {
-          await apiRequest("/api/ledgers", {
+          const result = await apiRequest("/api/ledgers", {
             method: "POST",
             body: JSON.stringify({
               title: ledger.title,
@@ -284,11 +292,29 @@ export default function Chat() {
               initialContent: ledger.content,
             }),
           });
+          if (result?.ledger?.id) {
+            savedLedgerMap.push({ title: ledger.title, type: ledger.type, id: result.ledger.id });
+          }
         } catch (e) {
           console.error("Failed to save ledger:", e);
         }
       }
-      
+
+      // If we saved ledgers and have the message ID, patch the message content
+      // to replace full <ledger> blocks with compact <ledger-ref id="..."/> sentinels.
+      // This ensures chip clicks use direct IDs rather than title lookup.
+      if (savedLedgerMap.length > 0 && savedMessageId !== null) {
+        try {
+          const sentinelContent = buildSentinelContent(fullContent, savedLedgerMap);
+          await apiRequest(`/api/messages/${savedMessageId}/content`, {
+            method: "PATCH",
+            body: JSON.stringify({ content: sentinelContent }),
+          });
+        } catch (e) {
+          console.error("Failed to patch message content with ledger sentinels:", e);
+        }
+      }
+
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "files"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });

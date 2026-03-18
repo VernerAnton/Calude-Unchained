@@ -19,7 +19,7 @@ interface ChatWindowProps {
   onDeleteMessage?: (messageId: number) => void;
   onBranchNavigate?: (parentId: number | null, direction: "prev" | "next") => void;
   onOpenThread?: (messageId: number) => void;
-  onLedgerChipClick?: (title: string) => void;
+  onLedgerChipClick?: (ledgerId: number, title: string) => void;
 }
 
 export function ChatWindow({

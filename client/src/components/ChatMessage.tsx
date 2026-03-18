@@ -19,7 +19,7 @@ interface ChatMessageProps {
   onDelete?: (messageId: number) => void;
   onBranchNavigate?: (parentId: number | null, direction: "prev" | "next") => void;
   onOpenThread?: (messageId: number) => void;
-  onLedgerChipClick?: (title: string) => void;
+  onLedgerChipClick?: (ledgerId: number, title: string) => void;
 }
 
 const LEDGER_TYPE_LABEL: Record<string, string> = {
@@ -311,7 +311,7 @@ export const ChatMessage = memo(function ChatMessage({
               <LedgerChip
                 key={chip.title}
                 chip={chip}
-                onClick={() => onLedgerChipClick?.(chip.title)}
+                onClick={() => onLedgerChipClick?.(chip.id, chip.title)}
               />
             ))}
           </div>
