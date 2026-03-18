@@ -44,7 +44,11 @@ The application features a professional, modern design with a distinctive "old t
 - **Schema-first architecture**: Ensures type safety across frontend and backend.
 - **Drizzle ORM**: Provides type-safe database queries.
 - **Server-Sent Events**: Used for efficient one-way streaming communication.
-- **Database Schema**: `conversations`, `messages`, `messageFiles`, `projects`, and `projectFiles` tables with appropriate relationships and cascade deletes. `parentMessageId` in the `messages` table supports conversation branching. `messageFiles` stores file attachments with base64 data for images/PDFs and extracted content for text files.
+- **Database Schema**: `conversations`, `messages`, `messageFiles`, `projects`, `projectFiles`, `ledgers`, and `ledgerVersions` tables with appropriate relationships and cascade deletes. `parentMessageId` in the `messages` table supports conversation branching. `messageFiles` stores file attachments with base64 data for images/PDFs and extracted content for text files. `ledgers` store persistent AI-generated artifacts with type (report/plan/code/note/draft); `ledgerVersions` tracks full version history.
+
+### Neon HTTP Driver Known Bugs (Workarounds Applied)
+- **Empty result crash**: `SELECT ... LIMIT 1` returning 0 rows causes `processQueryResult` to receive `null` and throw `Cannot read properties of null (reading 'map')`. Fix: wrap all LIMIT 1 queries in try/catch that returns `undefined`/`[]`.
+- **Null integer serialization**: Passing `null` explicitly for an integer column serializes it as `""` (empty string) in the HTTP wire format, causing `invalid input syntax for type integer: ""`. Fix: omit nullable integer fields from INSERT values object entirely, letting PostgreSQL use its column default (NULL).
 
 ## External Dependencies
 

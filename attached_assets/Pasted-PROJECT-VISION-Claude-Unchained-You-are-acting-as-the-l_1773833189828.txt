@@ -1,0 +1,48 @@
+PROJECT VISION: "Claude Unchained"
+You are acting as the lead backend architect for a Local-First, Bring-Your-Own-Key (BYOK), Bring-Your-Own-Database (BYODB) power-user AI interface. 
+The ultimate end-goal of this application is to allow users to generate code "Artifacts" (which we call "Proofs"), render them live in the browser using Sandpack, and explicitly "Promote" them into standalone, persistent local micro-apps with their own isolated memory. 
+
+CURRENT PHASE: Step 1 - Core Infrastructure (Versioned Ledgers)
+Before we can build the Sandpack UI or the App Promotion pipeline, we need the foundational database structure to save these files. We call these saved files "Ledgers". A Ledger is a persistent, versioned document (Report, Plan, or Code) that lives alongside the chat. Updates to a Ledger never overwrite the original; they append a new version (v1, v2, v3).
+
+TASK 1: DATABASE SCHEMA (Update shared/schema.ts)
+Add the following tables using Drizzle ORM:
+
+1. `ledgers` table:
+- id: serial (primary key)
+- title: text (not null)
+- type: text (enum: 'report', 'plan', 'code', 'note', 'draft')
+- created_at: timestamp (default now)
+- updated_at: timestamp (default now)
+- metadata_json: jsonb (default '{}') // Will be used later for Sandpack/App dependencies
+
+2. `ledger_versions` table:
+- id: serial (primary key)
+- ledger_id: integer (references ledgers.id)
+- version_number: integer (not null)
+- content: text (not null)
+- created_at: timestamp (default now)
+- created_from_message_id: integer (nullable) // Traceback to the specific chat message that generated this version
+
+Make sure to export the schemas and their types (insert/select/relations).
+
+TASK 2: BACKEND API (Update server/routes.ts)
+Implement the following Express routes. Ensure they interact correctly with the Drizzle db instance.
+
+- GET /api/ledgers
+  -> Return all ledgers ordered by updated_at desc.
+
+- GET /api/ledgers/:id
+  -> Return the ledger AND its latest version content from `ledger_versions`.
+
+- POST /api/ledgers
+  -> Body: { title, type, initialContent }
+  -> Action: Insert into `ledgers`. Then use that new ID to insert version 1 into `ledger_versions` with the `initialContent`. Return the new ledger object.
+
+- POST /api/ledgers/:id/versions
+  -> Body: { content, messageId (optional) }
+  -> Action: Get the max(version_number) for this ledger_id. Add 1. Insert a NEW row into `ledger_versions`. Update the `updated_at` timestamp on the parent `ledgers` row. Return the new version.
+
+STRICT CONSTRAINTS:
+1. Do not touch or break any existing code related to `messages`, `threads`, or `settings`.
+2. Do not build frontend React components, context panels, or Sandpack UI yet. Focus entirely on backend stability, types, and database migrations.

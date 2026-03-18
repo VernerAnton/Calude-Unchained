@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { anthropic } from "./anthropic";
-import { chatRequestSchema, insertConversationSchema, insertMessageSchema, insertProjectSchema, insertSettingsSchema, type FileAttachment, calculateCost } from "@shared/schema";
+import { chatRequestSchema, insertConversationSchema, insertMessageSchema, insertProjectSchema, insertSettingsSchema, insertLedgerSchema, LEDGER_TYPES, type FileAttachment, calculateCost } from "@shared/schema";
 import { storage } from "./storage";
 import { z } from "zod";
 import multer from "multer";
@@ -821,6 +821,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     return path;
   }
+
+  // Ledgers
+  app.get("/api/ledgers", async (_req, res) => {
+    try {
+      const all = await storage.getLedgers();
+      res.json(all);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to fetch ledgers" });
+    }
+  });
+
+  app.get("/api/ledgers/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+      const ledger = await storage.getLedger(id);
+      if (!ledger) return res.status(404).json({ error: "Ledger not found" });
+      const latestVersion = await storage.getLatestLedgerVersion(id);
+      res.json({ ...ledger, latestVersion: latestVersion ?? null });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to fetch ledger" });
+    }
+  });
+
+  app.post("/api/ledgers", async (req, res) => {
+    try {
+      const bodySchema = insertLedgerSchema.extend({
+        initialContent: z.string().min(1, "Initial content is required"),
+      });
+      const parsed = bodySchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+      const { initialContent, ...ledgerData } = parsed.data;
+      const result = await storage.createLedger(ledgerData, initialContent);
+      res.status(201).json(result);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to create ledger" });
+    }
+  });
+
+  app.post("/api/ledgers/:id/versions", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+      const ledger = await storage.getLedger(id);
+      if (!ledger) return res.status(404).json({ error: "Ledger not found" });
+      const bodySchema = z.object({
+        content: z.string().min(1, "Content is required"),
+        messageId: z.number().nullable().optional(),
+      });
+      const parsed = bodySchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+      const version = await storage.addLedgerVersion(id, parsed.data.content, parsed.data.messageId);
+      res.status(201).json(version);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to add ledger version" });
+    }
+  });
 
   const httpServer = createServer(app);
 

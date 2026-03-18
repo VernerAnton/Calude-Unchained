@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, timestamp, integer, boolean, AnyPgColumn, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, AnyPgColumn, real, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -189,3 +189,42 @@ export function calculateCost(model: string, inputTokens: number, outputTokens: 
   const outputCost = (outputTokens / 1_000_000) * pricing.outputPer1M;
   return inputCost + outputCost;
 }
+
+export const LEDGER_TYPES = ["report", "plan", "code", "note", "draft"] as const;
+export type LedgerType = typeof LEDGER_TYPES[number];
+
+export const ledgers = pgTable("ledgers", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  title: text("title").notNull(),
+  type: varchar("type", { length: 20 }).notNull().$type<LedgerType>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  metadataJson: jsonb("metadata_json").notNull().default({}),
+});
+
+export const ledgerVersions = pgTable("ledger_versions", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  ledgerId: integer("ledger_id").notNull().references(() => ledgers.id, { onDelete: "cascade" }),
+  versionNumber: integer("version_number").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdFromMessageId: integer("created_from_message_id").references(() => messages.id, { onDelete: "set null" }),
+});
+
+export const insertLedgerSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  type: z.enum(LEDGER_TYPES),
+  metadataJson: z.record(z.unknown()).optional(),
+});
+
+export const insertLedgerVersionSchema = z.object({
+  ledgerId: z.number(),
+  versionNumber: z.number(),
+  content: z.string(),
+  createdFromMessageId: z.number().nullable().optional(),
+});
+
+export type InsertLedger = z.infer<typeof insertLedgerSchema>;
+export type Ledger = typeof ledgers.$inferSelect;
+export type InsertLedgerVersion = z.infer<typeof insertLedgerVersionSchema>;
+export type LedgerVersion = typeof ledgerVersions.$inferSelect;
