@@ -46,12 +46,12 @@ export function buildSentinelContent(
 ): string {
   let result = rawContent;
   for (const { title, type, id } of ledgerMap) {
-    const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const blockRegex = new RegExp(
-      `<ledger\\s[^>]*title="${escapedTitle}"[^>]*>[\\s\\S]*?<\\/ledger>`,
-      "g"
+    // Replace the first (next in sequence) <ledger> block found.
+    // Using non-title-specific match so identical titles are handled by position.
+    result = result.replace(
+      /<ledger\s[^>]*>[\s\S]*?<\/ledger>/,
+      `<ledger-ref id="${id}" type="${type}" title="${title}"/>`
     );
-    result = result.replace(blockRegex, `<ledger-ref id="${id}" type="${type}" title="${title}"/>`);
   }
   return result;
 }

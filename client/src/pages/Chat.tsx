@@ -239,8 +239,9 @@ export default function Chat() {
       const decoder = new TextDecoder();
       let fullContent = "";
       let savedMessageId: number | null = null;
-      const savedLedgerMap: Array<{ title: string; type: string; id: number }> = [];
-      const savedLedgerTitles = new Set<string>();
+      // Track by occurrence index so identical titles are handled as separate instances
+      let savedLedgerCount = 0;
+      const savedLedgerSlots: Array<{ title: string; type: string; id: number } | null> = [];
       const ledgerSavePromises: Promise<void>[] = [];
 
       if (reader) {
@@ -263,25 +264,26 @@ export default function Chat() {
                   fullContent += parsed.content;
                   const { visibleText, completeLedgers } = parseLedgerBlocks(fullContent);
                   scheduleStreamingUpdate(visibleText);
-                  // Save each newly completed ledger block immediately as it arrives
-                  for (const ledger of completeLedgers) {
-                    if (!savedLedgerTitles.has(ledger.title)) {
-                      savedLedgerTitles.add(ledger.title);
-                      const p = apiRequest("/api/ledgers", {
-                        method: "POST",
-                        body: JSON.stringify({
-                          title: ledger.title,
-                          type: ledger.type,
-                          initialContent: ledger.content,
-                        }),
-                      }).then((result) => {
-                        if (result?.ledger?.id) {
-                          savedLedgerMap.push({ title: ledger.title, type: ledger.type, id: result.ledger.id });
-                        }
-                      }).catch((e) => console.error("Failed to save ledger:", e));
-                      ledgerSavePromises.push(p);
-                    }
+                  // Save each newly arrived complete block immediately (indexed by occurrence, not title)
+                  for (let i = savedLedgerCount; i < completeLedgers.length; i++) {
+                    const ledger = completeLedgers[i];
+                    const slotIdx = savedLedgerSlots.length;
+                    savedLedgerSlots.push(null);
+                    const p = apiRequest("/api/ledgers", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        title: ledger.title,
+                        type: ledger.type,
+                        initialContent: ledger.content,
+                      }),
+                    }).then((result) => {
+                      if (result?.ledger?.id) {
+                        savedLedgerSlots[slotIdx] = { title: ledger.title, type: ledger.type, id: result.ledger.id };
+                      }
+                    }).catch((e) => console.error("Failed to save ledger:", e));
+                    ledgerSavePromises.push(p);
                   }
+                  savedLedgerCount = completeLedgers.length;
                 }
                 if (typeof parsed.savedMessageId === "number") {
                   savedMessageId = parsed.savedMessageId;
@@ -301,8 +303,11 @@ export default function Chat() {
 
       // Wait for all in-flight ledger saves to complete, then patch the message content
       // to replace full <ledger> blocks with compact <ledger-ref id="..."/> sentinels.
-      // This ensures chip clicks use direct IDs rather than fragile title-based lookup.
+      // Sentinels are replaced sequentially by occurrence order so identical titles work correctly.
       await Promise.all(ledgerSavePromises);
+      const savedLedgerMap = savedLedgerSlots.filter(
+        (s): s is { title: string; type: string; id: number } => s !== null
+      );
       if (savedLedgerMap.length > 0 && savedMessageId !== null) {
         try {
           const sentinelContent = buildSentinelContent(fullContent, savedLedgerMap);
