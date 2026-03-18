@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { type Ledger, type LedgerVersion } from "@shared/schema";
-import { ChevronLeft } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Sandpack } from "@codesandbox/sandpack-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export type LedgerDetail = Ledger & { latestVersion: LedgerVersion | null };
 
@@ -25,25 +25,25 @@ export function LedgerViewer({ ledgerId, onBack }: LedgerViewerProps) {
     queryKey: ["/api/ledgers", ledgerId],
   });
 
-  const headerSection = (
-    <div className="border-b-2 border-border px-3 py-2 flex-shrink-0">
-      <button
-        onClick={onBack}
-        className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1 hover-elevate"
-        data-testid="button-ledger-back"
-      >
-        <ChevronLeft className="w-3 h-3" />
-        Back
-      </button>
-    </div>
-  );
-
   if (isLoading) {
     return (
       <div className="h-full flex flex-col" data-testid={`ledger-viewer-${ledgerId}`}>
-        {headerSection}
-        <div className="flex-1 flex items-center justify-center p-4 font-mono text-xs text-muted-foreground">
-          Loading...
+        <div className="border-b-2 border-border px-3 py-2 flex-shrink-0">
+          <button
+            onClick={onBack}
+            className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover-elevate"
+            data-testid="button-ledger-back"
+          >
+            ← Back
+          </button>
+        </div>
+        <div className="p-4 space-y-3">
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-3 w-1/4" />
+          <Skeleton className="h-3 w-full mt-4" />
+          <Skeleton className="h-3 w-5/6" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-4/5" />
         </div>
       </div>
     );
@@ -52,7 +52,15 @@ export function LedgerViewer({ ledgerId, onBack }: LedgerViewerProps) {
   if (isError || !ledger) {
     return (
       <div className="h-full flex flex-col" data-testid={`ledger-viewer-${ledgerId}`}>
-        {headerSection}
+        <div className="border-b-2 border-border px-3 py-2 flex-shrink-0">
+          <button
+            onClick={onBack}
+            className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover-elevate"
+            data-testid="button-ledger-back"
+          >
+            ← Back
+          </button>
+        </div>
         <div className="flex-1 flex items-center justify-center p-4 font-mono text-xs text-destructive text-center">
           Failed to load ledger.
         </div>
@@ -69,11 +77,10 @@ export function LedgerViewer({ ledgerId, onBack }: LedgerViewerProps) {
       <div className="border-b-2 border-border px-3 py-2 flex-shrink-0 space-y-1.5">
         <button
           onClick={onBack}
-          className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1 hover-elevate"
+          className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover-elevate"
           data-testid="button-ledger-back"
         >
-          <ChevronLeft className="w-3 h-3" />
-          Back
+          ← Back
         </button>
         <div className="font-mono text-sm font-semibold leading-snug">
           {ledger.title}
