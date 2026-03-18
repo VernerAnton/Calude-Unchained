@@ -64,6 +64,7 @@ export default function Chat() {
       setSidebarOpen(sidebarWasOpenRef.current);
       sidebarWasOpenRef.current = null;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only fires on deck toggle, not sidebar changes
   }, [showContextDeck]);
 
   useEffect(() => {
@@ -644,7 +645,7 @@ export default function Chat() {
             <ResizablePanel defaultSize={50} minSize={30}>
               {chatArea}
             </ResizablePanel>
-            <ResizableHandle className="w-[2px] bg-border" data-testid="context-deck-resize-handle" />
+            <ResizableHandle className="w-[2px] bg-border cursor-col-resize" data-testid="context-deck-resize-handle" />
             <ResizablePanel defaultSize={50} minSize={20}>
               <ContextDeck ref={contextDeckRef} onClose={() => setShowContextDeck(false)} />
             </ResizablePanel>
@@ -667,7 +668,7 @@ export default function Chat() {
           <ResizablePanel defaultSize={50} minSize={30}>
             {mainContent}
           </ResizablePanel>
-          <ResizableHandle className="w-[2px] bg-border" data-testid="context-deck-resize-handle" />
+          <ResizableHandle className="w-[2px] bg-border cursor-col-resize" data-testid="context-deck-resize-handle" />
           <ResizablePanel defaultSize={50} minSize={20}>
             <ContextDeck ref={contextDeckRef} onClose={() => setShowContextDeck(false)} />
           </ResizablePanel>
