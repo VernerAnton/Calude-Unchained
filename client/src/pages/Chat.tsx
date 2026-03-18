@@ -301,16 +301,13 @@ export default function Chat() {
         rafIdRef.current = null;
       }
 
-      // Wait for all in-flight ledger saves to complete, then patch the message content
-      // to replace full <ledger> blocks with compact <ledger-ref id="..."/> sentinels.
-      // Sentinels are replaced sequentially by occurrence order so identical titles work correctly.
+      // Wait for all in-flight ledger saves to complete, then patch the message content.
+      // Pass savedLedgerSlots with nulls intact so each block position maps correctly
+      // to its slot; failed saves degrade to legacy <ledger> XML chips (id=-1).
       await Promise.all(ledgerSavePromises);
-      const savedLedgerMap = savedLedgerSlots.filter(
-        (s): s is { title: string; type: string; id: number } => s !== null
-      );
-      if (savedLedgerMap.length > 0 && savedMessageId !== null) {
+      if (savedLedgerSlots.length > 0 && savedMessageId !== null) {
         try {
-          const sentinelContent = buildSentinelContent(fullContent, savedLedgerMap);
+          const sentinelContent = buildSentinelContent(fullContent, savedLedgerSlots);
           await apiRequest(`/api/messages/${savedMessageId}/content`, {
             method: "PATCH",
             body: JSON.stringify({ content: sentinelContent }),
@@ -320,7 +317,7 @@ export default function Chat() {
         }
       }
 
-      const hadLedgers = savedLedgerMap.length > 0;
+      const hadLedgers = savedLedgerSlots.some((s) => s !== null);
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "messages"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations", activeConversationId, "files"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });

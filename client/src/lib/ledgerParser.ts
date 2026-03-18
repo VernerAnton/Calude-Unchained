@@ -42,18 +42,16 @@ export interface LedgerChipInfo {
 
 export function buildSentinelContent(
   rawContent: string,
-  ledgerMap: Array<{ title: string; type: string; id: number }>
+  ledgerSlots: Array<{ title: string; type: string; id: number } | null>
 ): string {
-  let result = rawContent;
-  for (const { title, type, id } of ledgerMap) {
-    // Replace the first (next in sequence) <ledger> block found.
-    // Using non-title-specific match so identical titles are handled by position.
-    result = result.replace(
-      /<ledger\s[^>]*>[\s\S]*?<\/ledger>/,
-      `<ledger-ref id="${id}" type="${type}" title="${title}"/>`
-    );
-  }
-  return result;
+  let slotIdx = 0;
+  // Replace each <ledger> block in order, using the corresponding slot by position.
+  // If a slot is null (save failed), keep the original XML so it degrades to a legacy chip.
+  return rawContent.replace(/<ledger\s[^>]*>[\s\S]*?<\/ledger>/g, (match) => {
+    const slot = ledgerSlots[slotIdx++] ?? null;
+    if (!slot) return match;
+    return `<ledger-ref id="${slot.id}" type="${slot.type}" title="${slot.title}"/>`;
+  });
 }
 
 export function extractLedgerChips(content: string): {
