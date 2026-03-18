@@ -348,6 +348,7 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
               }}
               data-testid={`${testIdPrefix}button-send`}
               title="Send message"
+              aria-label="Send message"
             >
               <ArrowUp className="w-5 h-5" />
             </button>
