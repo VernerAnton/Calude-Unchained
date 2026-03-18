@@ -1,0 +1,25 @@
+Awesome job on the backend! Let's hold off on the Claude parsing and Sandpack renderers for a moment. 
+
+Because of the specific "Power-User / Cockpit" UI we are building, if we parse the AI output now, it will dump the Artifacts inline into the chat stream and ruin the UI. We need to build the physical "home" for the Ledgers first so we have a target to route the AI output into later.
+
+CURRENT PHASE: Step 2 - The Workspace UI (Context Deck & Cockpit)
+We need to update the frontend shell to match our "Claude Unchained" architectural vision.
+
+TASK 1: Create the "Context Deck" (Right-Side Panel)
+1. Create a new component `client/src/components/ContextDeck.tsx`.
+2. This should be a right-side sidebar that lives alongside the main chat area. 
+3. It should have two tabs at the top: "Ledgers" and "Context/Files".
+4. For now, the "Ledgers" tab should just hit the `GET /api/ledgers` endpoint we just built and display a list of the saved ledgers (Title, Type, Updated At). 
+5. Integrate this into the main `Chat.tsx` layout. You can use the existing `ResizablePanelGroup` logic you already have for the `ThreadPanel`, or implement a clean toggleable right sidebar. The layout should be: Sidebar (Left) | Chat Stream (Center) | Context Deck (Right).
+
+TASK 2: Update `ChatInput.tsx` to the "Cockpit" Layout
+1. Redesign `ChatInput.tsx` from a standard horizontal row into a "Stacked Control Column" layout.
+2. Left Column Stack: Vertically stack the "Attach File" (paperclip) button and a new placeholder "Library" button.
+3. Center: The auto-growing text area.
+4. Right Column Stack: Vertically stack the "Send" button and a placeholder "Branch/Fork" button.
+5. Keep the vintage, minimal border styling currently in the app.
+
+STRICT CONSTRAINTS:
+- Do NOT implement Sandpack or Markdown parsing yet.
+- Do NOT hook up Claude to generate `<ledger>` tags yet. 
+- Focus purely on getting the `ContextDeck` rendering our empty database state and making the `ChatInput` look like a power-user cockpit.
