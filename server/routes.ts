@@ -632,8 +632,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages: claudeMessages,
       };
 
-      // Append ledger instruction so Claude wraps artifacts in parseable XML blocks
-      const LEDGER_INSTRUCTION = `When you produce a code artifact, document, plan, or report, wrap it in a ledger block: <ledger type="TYPE" title="TITLE">CONTENT</ledger> where TYPE is one of: code, report, plan, note, draft.`;
+      // Append ledger instruction so Claude wraps artifacts in parseable XML blocks.
+      // Instruction is always appended after any user-defined system prompt.
+      const LEDGER_INSTRUCTION = `You MUST wrap any code artifact, plan, report, note, or draft you produce inside a ledger XML block using this exact format:
+<ledger type="TYPE" title="TITLE">
+CONTENT GOES HERE
+</ledger>
+TYPE must be one of: code, report, plan, note, draft. TITLE should be a short descriptive name. Do NOT use markdown code fences or document headers outside the ledger block — the ledger block IS the artifact. Keep conversational text brief and outside the block.`;
 
       streamOptions.system = systemPrompt
         ? `${systemPrompt}\n\n${LEDGER_INSTRUCTION}`

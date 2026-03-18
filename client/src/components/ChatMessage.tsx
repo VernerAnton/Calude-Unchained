@@ -300,9 +300,9 @@ export const ChatMessage = memo(function ChatMessage({
 
         {ledgerChips.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-3" data-testid={`ledger-chips-${message.id}`}>
-            {ledgerChips.map((chip) => (
+            {ledgerChips.map((chip, idx) => (
               <LedgerChip
-                key={chip.title}
+                key={`${chip.id}-${idx}`}
                 chip={chip}
                 onClick={() => onLedgerChipClick?.(chip.id, chip.title)}
               />
