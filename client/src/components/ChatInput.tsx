@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Paperclip, X, File, Image, FileText, FileCode } from "lucide-react";
+import { Paperclip, X, File, Image, FileText, FileCode, Library, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -95,6 +95,8 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
+const COCKPIT_BTN_SIZE = 52;
+
 export function ChatInput({ onSend, disabled, placeholder = "Type your message here...", testIdPrefix = "", initialValue = "", onDraftChange }: ChatInputProps) {
   const [message, setMessage] = useState(initialValue);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
@@ -117,7 +119,8 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+      const newHeight = Math.min(Math.max(textareaRef.current.scrollHeight, COCKPIT_BTN_SIZE * 2 + 8), 240);
+      textareaRef.current.style.height = `${newHeight}px`;
     }
   }, [message]);
 
@@ -213,6 +216,7 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
 
   return (
     <div className="space-y-3">
+      {/* File previews */}
       {pendingFiles.length > 0 && (
         <div className="flex flex-wrap gap-2" data-testid={`${testIdPrefix}file-previews`}>
           {pendingFiles.map((pf, index) => (
@@ -245,7 +249,9 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
           ))}
         </div>
       )}
-      <form onSubmit={handleSubmit} className="flex gap-4">
+
+      {/* Cockpit form: [Left Col] [Textarea] [Right Col] */}
+      <form onSubmit={handleSubmit} className="flex gap-3 items-start">
         <input
           ref={fileInputRef}
           type="file"
@@ -255,18 +261,41 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
           className="hidden"
           data-testid={`${testIdPrefix}input-file`}
         />
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled}
-          className="self-end border-2 border-border bg-card h-[60px] w-[60px]"
-          style={{ boxShadow: "4px 4px 0px hsl(var(--border))" }}
-          data-testid={`${testIdPrefix}button-attach-file`}
-        >
-          <Paperclip className="w-5 h-5" />
-        </Button>
+
+        {/* Left column — Attach + Library */}
+        <div className="flex flex-col gap-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled}
+            className="border-2 border-border bg-card text-card-foreground flex items-center justify-center hover-elevate active-elevate-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{
+              boxShadow: "4px 4px 0px hsl(var(--border))",
+              width: `${COCKPIT_BTN_SIZE}px`,
+              height: `${COCKPIT_BTN_SIZE}px`,
+            }}
+            data-testid={`${testIdPrefix}button-attach-file`}
+            title="Attach file"
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
+            disabled
+            className="border-2 border-border bg-card text-muted-foreground flex items-center justify-center opacity-35 cursor-not-allowed"
+            style={{
+              boxShadow: "2px 2px 0px hsl(var(--border))",
+              width: `${COCKPIT_BTN_SIZE}px`,
+              height: `${COCKPIT_BTN_SIZE}px`,
+            }}
+            data-testid={`${testIdPrefix}button-library`}
+            title="Library (coming soon)"
+          >
+            <Library className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Center — auto-growing textarea */}
         <textarea
           ref={textareaRef}
           value={message}
@@ -274,20 +303,22 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          className="flex-1 border-2 border-border bg-card text-card-foreground p-4 font-mono resize-none shadow-md focus:outline-none focus:ring-2 focus:ring-border disabled:opacity-60"
-          style={{ 
+          className="flex-1 border-2 border-border bg-card text-card-foreground p-4 font-mono resize-none focus:outline-none focus:ring-2 focus:ring-border disabled:opacity-60"
+          style={{
             boxShadow: "4px 4px 0px hsl(var(--border))",
-            minHeight: "60px",
-            maxHeight: "120px"
+            minHeight: `${COCKPIT_BTN_SIZE * 2 + 8}px`,
+            maxHeight: "240px",
           }}
           data-testid={`${testIdPrefix}input-message`}
         />
-        <div className="flex flex-col items-end justify-end gap-1">
+
+        {/* Right column — Usage chip + Send + Branch/Fork */}
+        <div className="flex flex-col items-end gap-2 flex-shrink-0">
           {showIntensity && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div 
-                  className={`font-mono text-xs uppercase tracking-wider px-3 py-1.5 border-2 ${colors.border} ${colors.text} bg-transparent cursor-default whitespace-nowrap`}
+                <div
+                  className={`font-mono text-xs uppercase tracking-wider px-2 py-1 border-2 ${colors.border} ${colors.text} bg-transparent cursor-default whitespace-nowrap`}
                   data-testid="usage-intensity-chip"
                 >
                   {intensity.level === "learning" ? "Learning..." : intensity.label.replace("Usage: ", "")}
@@ -308,12 +339,29 @@ export function ChatInput({ onSend, disabled, placeholder = "Type your message h
           <button
             type="submit"
             disabled={disabled || (!message.trim() && pendingFiles.length === 0)}
-            className="border-2 border-border bg-card text-card-foreground px-6 font-bold uppercase tracking-wider transition-all hover-elevate active-elevate-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{ boxShadow: "4px 4px 0px hsl(var(--border))", height: "60px" }}
+            className="border-2 border-border bg-card text-card-foreground px-5 font-bold uppercase tracking-wider hover-elevate active-elevate-2 disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+            style={{
+              boxShadow: "4px 4px 0px hsl(var(--border))",
+              height: `${COCKPIT_BTN_SIZE}px`,
+            }}
             data-testid={`${testIdPrefix}button-send`}
           >
             <span className="hidden sm:inline">▌ SEND</span>
             <span className="sm:hidden">▌</span>
+          </button>
+          <button
+            type="button"
+            disabled
+            className="border-2 border-border bg-card text-muted-foreground flex items-center justify-center opacity-35 cursor-not-allowed"
+            style={{
+              boxShadow: "2px 2px 0px hsl(var(--border))",
+              width: `${COCKPIT_BTN_SIZE}px`,
+              height: `${COCKPIT_BTN_SIZE}px`,
+            }}
+            data-testid={`${testIdPrefix}button-branch`}
+            title="Branch / Fork (coming soon)"
+          >
+            <GitBranch className="w-4 h-4" />
           </button>
         </div>
       </form>

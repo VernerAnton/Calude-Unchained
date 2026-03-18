@@ -16,6 +16,9 @@ import { getActivePath, getSiblings, getThreadMessages, normalizeParentId, type 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useSettings } from "@/contexts/SettingsContext";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { ContextDeck } from "@/components/ContextDeck";
+import { PanelRightOpen, PanelRightClose } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function Chat() {
   const [, params] = useRoute("/chat/:id");
@@ -29,6 +32,7 @@ export default function Chat() {
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
   const [branchSelections, setBranchSelections] = useState<BranchSelection>({});
   const [threadRootId, setThreadRootId] = useState<number | null>(null);
+  const [showContextDeck, setShowContextDeck] = useState(false);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -479,6 +483,20 @@ export default function Chat() {
               onSave={handleSaveSystemPrompt}
             />
             <ExportButton conversation={conversation} messages={activePath} />
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setShowContextDeck(v => !v)}
+              className={`toggle-elevate${showContextDeck ? " toggle-elevated" : ""}`}
+              title={showContextDeck ? "Close Context Deck" : "Open Context Deck"}
+              data-testid="button-toggle-context-deck"
+            >
+              {showContextDeck ? (
+                <PanelRightClose className="h-4 w-4" />
+              ) : (
+                <PanelRightOpen className="h-4 w-4" />
+              )}
+            </Button>
           </div>
         </div>
 
@@ -510,26 +528,40 @@ export default function Chat() {
     </div>
   );
 
+  const contextDeckEl = showContextDeck ? (
+    <ContextDeck onClose={() => setShowContextDeck(false)} />
+  ) : null;
+
   if (threadRootId && threadRootMessage && conversationId) {
     return (
-      <ResizablePanelGroup direction="horizontal" className="h-full">
-        <ResizablePanel defaultSize={60} minSize={30}>
-          {mainContent}
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={40} minSize={25}>
-          <ThreadPanel
-            rootMessage={threadRootMessage}
-            threadMessages={threadMessages}
-            conversationId={conversationId}
-            selectedModel={effectiveModel}
-            systemPrompt={conversation?.systemPrompt}
-            onClose={handleCloseThread}
-          />
-        </ResizablePanel>
-      </ResizablePanelGroup>
+      <div className="flex h-full w-full overflow-hidden">
+        <ResizablePanelGroup direction="horizontal" className="flex-1 min-w-0">
+          <ResizablePanel defaultSize={60} minSize={30}>
+            {mainContent}
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={40} minSize={25}>
+            <ThreadPanel
+              rootMessage={threadRootMessage}
+              threadMessages={threadMessages}
+              conversationId={conversationId}
+              selectedModel={effectiveModel}
+              systemPrompt={conversation?.systemPrompt}
+              onClose={handleCloseThread}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+        {contextDeckEl}
+      </div>
     );
   }
 
-  return mainContent;
+  return (
+    <div className="flex h-full w-full overflow-hidden">
+      <div className="flex-1 min-w-0 overflow-hidden">
+        {mainContent}
+      </div>
+      {contextDeckEl}
+    </div>
+  );
 }
