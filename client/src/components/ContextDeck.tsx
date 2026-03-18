@@ -33,7 +33,7 @@ interface ContextDeckProps {
 export function ContextDeck({ onClose }: ContextDeckProps) {
   const [activeTab, setActiveTab] = useState<"ledgers" | "context">("ledgers");
 
-  const { data: ledgers = [], isLoading } = useQuery<Ledger[]>({
+  const { data: ledgers = [], isLoading, isError } = useQuery<Ledger[]>({
     queryKey: ["/api/ledgers"],
     refetchInterval: 15000,
   });
@@ -74,7 +74,7 @@ export function ContextDeck({ onClose }: ContextDeckProps) {
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
         {activeTab === "ledgers" ? (
-          <LedgersPanel ledgers={ledgers} isLoading={isLoading} />
+          <LedgersPanel ledgers={ledgers} isLoading={isLoading} isError={isError} />
         ) : (
           <ContextFilesPanel />
         )}
@@ -113,14 +113,24 @@ function TabButton({
 function LedgersPanel({
   ledgers,
   isLoading,
+  isError,
 }: {
   ledgers: Ledger[];
   isLoading: boolean;
+  isError: boolean;
 }) {
   if (isLoading) {
     return (
       <div className="p-4 font-mono text-xs text-muted-foreground text-center py-10">
         Loading...
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-4 font-mono text-xs text-destructive text-center py-10">
+        Failed to load ledgers.
       </div>
     );
   }
