@@ -1,0 +1,31 @@
+PROJECT: Claude Unchained
+CURRENT PHASE: Step 3 - The Proof Renderer & AI Hookup
+
+Incredible job on the UI shell and fixing those Neon driver quirks. The Cockpit and Context Deck look exactly right. Now we need to implement the "Magic" by connecting Claude to the Ledgers system.
+
+TASK 1: Ledger Detail View & Sandpack Renderer
+1. Install the package `@codesandbox/sandpack-react`.
+2. Create `client/src/components/LedgerViewer.tsx`.
+3. Update the ContextDeck: When a user clicks a Ledger in the list, transition the deck to show the `LedgerViewer` for that specific item (include a "← Back to List" button).
+4. Renderer Logic in LedgerViewer:
+   - If `ledger.type === 'code'`, render the content using the `<Sandpack>` component. Use `template="react"`, `theme="light"`, and pass the ledger content into `/App.js`.
+   - If `ledger.type` is 'report', 'plan', 'note', or 'draft', render the content using our existing React Markdown renderer.
+
+TASK 2: System Prompt Injection
+Update the main Claude system prompt (likely in `server/anthropic.ts` or `server/routes.ts`) to include this exact instruction:
+"When the user asks you to write code, build an app, or draft a comprehensive report/plan, you MUST wrap your output in XML tags like this:
+<ledger type="code" title="My React App">
+// content goes here
+</ledger>
+Valid types are: report, plan, code, note, draft. Do not use markdown codeblocks outside of this ledger tag when generating these artifacts."
+
+TASK 3: Stream Parsing & Auto-Saving (The Interceptor)
+1. Update the chat UI (`ChatMessage.tsx` or the streaming handler) to intercept the model's output. 
+2. HIDDEN XML: Do NOT render the raw `<ledger>...</ledger>` XML text in the user's chat bubble. 
+3. EXTRACTION & SAVING: When a `<ledger>` block completes streaming, extract the `type`, `title`, and `content`. Automatically trigger a `POST /api/ledgers` request to save it to the database.
+4. UI CHIP: Inside the chat bubble, replace the hidden XML with a sleek UI card/chip that says "Ledger Generated: [Title]". Clicking this chip should automatically open the ContextDeck and load that Ledger in the `LedgerViewer`.
+
+STRICT CONSTRAINTS:
+- Ensure the regex or parsing logic handles streaming chunks gracefully (don't break the app if the closing `</ledger>` tag hasn't arrived yet).
+- Keep the vintage/minimal styling for the "Ledger Generated" chat chip.
+- Do NOT touch the Library or Branch/Fork placeholder buttons yet. Focus entirely on the Ledger parsing and rendering pipeline.
